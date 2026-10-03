@@ -71,8 +71,9 @@ main() {
     step "2. Checking the files"
     [ -f "$MAIN" ] || fail "$MAIN is missing"
     [ -f rc.local ] || fail "rc.local is missing"
-    grep -q "$MAIN" rc.local || warn "rc.local doesn't start $MAIN"
-    grep -q "cd $DIR " rc.local || warn "rc.local doesn't use this folder ($DIR)"
+    # Stop here rather than install a boot file that points elsewhere
+    grep -q "$MAIN" rc.local || fail "rc.local doesn't start $MAIN - fix rc.local in GitHub, then run this again"
+    grep -q "cd $DIR " rc.local || fail "rc.local doesn't use this folder ($DIR) - fix rc.local in GitHub, then run this again"
     [ -x "$VENV_PYTHON" ] || fail "Pimoroni Python not found at $VENV_PYTHON"
     ok "$MAIN, rc.local and Pimoroni Python found"
     if [ -f birdfacts.json ]; then
