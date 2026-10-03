@@ -1,6 +1,6 @@
 # bbbb-display
 
-BirdNET-Pi bird display on a Pimoroni Inky Impression 4" (Spectra 6, 600 × 400) e-ink screen, on a Raspberry Pi 4B (`birdnet-chloe`). Installed on the Pi in `/home/pi/bbbb/custom_display`.
+BirdNET-Pi bird display on a Pimoroni Inky Impression 4" (Spectra 6, 600 × 400) e-ink screen, on a Raspberry Pi 4B (`birdnet-chloe`). Installed on the Pi in `/home/pi/bbbb-display`.
 
 ## Files
 
@@ -33,7 +33,7 @@ Browse and chart return to live after 5 minutes without a press.
 1. **Mac:** put the changed files in the repository folder → GitHub Desktop → **Commit** → **Push**.
 2. **Pi:**
    ```
-   cd /home/pi/bbbb/custom_display
+   cd /home/pi/bbbb-display
    bash update.sh
    ```
    It pulls from GitHub, checks the files, stops the display, installs `rc.local` if changed (old one backed up in `/etc`), tests the database, draws the live screen once, then asks whether to start the display. Run without `sudo`.

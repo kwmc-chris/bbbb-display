@@ -5,13 +5,13 @@
 # Starts the BirdNET-Pi display: waits 60 s (network, BirdNET-Pi), then runs
 # the main script as user pi with the Pimoroni Python, in the background,
 # logging to display.log.
-#   Watch:  tail -f /home/pi/bbbb/custom_display/display.log
+#   Watch:  tail -f /home/pi/bbbb-display/display.log
 #   Stop:   sudo pkill -f bbbb-display.py
 (
   sleep 60
-  sudo -u pi sh -c 'cd /home/pi/bbbb/custom_display && \
-    /home/pi/.virtualenvs/pimoroni/bin/python3 -u /home/pi/bbbb/custom_display/bbbb-display.py \
-    >> /home/pi/bbbb/custom_display/display.log 2>&1'
+  sudo -u pi sh -c 'cd /home/pi/bbbb-display && \
+    /home/pi/.virtualenvs/pimoroni/bin/python3 -u /home/pi/bbbb-display/bbbb-display.py \
+    >> /home/pi/bbbb-display/display.log 2>&1'
 ) &
 
 exit 0
