@@ -7,9 +7,9 @@ birdbrowser.py - buttons and BROWSE pages for bbbb-display.py.
     species_times(db, name, date)   times a species was heard
     render_page(...)                draw one browse page
 
-Page: photo top left; names, order/family and times heard top right; five
-tiles (habitat, food, nesting, behaviour, UK status) with a short description
-below. Birds not in birdfacts.json get a longer description and one global
+Page: photo top left; names, order/family, times heard and the page counter
+top right; five tiles (habitat, food, nesting, behaviour, UK status) with a
+description below. Birds not in birdfacts.json get a longer description and one global
 conservation tile instead.
 
 Tile icons are drawn by code, unless you put a PNG in the icons folder
@@ -39,7 +39,7 @@ EXTRA_PRESS_WAIT_SECONDS = 0.6    # wait to catch quick multiple presses
 # Content
 RECENT_SPECIES_LIMIT = 30         # species in the browse list
 TIMES_SHOWN = 10                  # detection times listed
-DESCRIPTION_LINES = 2             # description under the tiles (fewer if no room)
+DESCRIPTION_LINES = 4             # description under the tiles (fewer if no room)
 FALLBACK_DESCRIPTION_LINES = 5    # description for birds not in birdfacts.json
 
 # Layout (pixels)
@@ -553,7 +553,6 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
     canvas = Image.new("RGB", size, COLOURS["white"])
     d = ImageDraw.Draw(canvas)
     d.fontmode = "1"
-    footer_y = height - m - 12
 
     # --- Photo and credit (top left) ---
     pw, ph = PHOTO_SIZE
@@ -592,28 +591,33 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
             y += 19
     y += 6
 
-    # --- When heard ---
+    # --- When heard, with the page counter on the right of the second line ---
+    total = sp["total"]
+    total_text = f"{total} detection{'s' if total != 1 else ''} in total"
     if times_today:
         n = len(times_today)
-        d.text((x_text, y), f"Heard {n} time{'s' if n != 1 else ''} today",
-               font=_font("bold"), fill=COLOURS["red"])
-        y += 20
-        d.text((x_text, y), f"First {times_today[0]}  •  Last {times_today[-1]}  •  "
-               f"{sp['total']} in total", font=_font("small"), fill=COLOURS["black"])
-        y += 18
-        if y < 180:                           # room above the tiles
-            recent = times_today[-TIMES_SHOWN:]
-            label = "Recent: " if n > TIMES_SHOWN else "Times: "
-            d.text((x_text, y), _wrap(d, label + "  ".join(recent), _font("small"), max_w)[0],
-                   font=_font("small"), fill=COLOURS["black"])
-            y += 18
+        line1 = f"Heard {n} time{'s' if n != 1 else ''} today  •  {total} in total"
+        line2 = f"First {times_today[0]}  •  Last {times_today[-1]}"
     else:
         last = datetime.strptime(sp["last_heard"][:16], "%Y-%m-%d %H:%M")
-        d.text((x_text, y), "Last heard " + last.strftime("%d %b, %H:%M"),
-               font=_font("bold"), fill=COLOURS["red"])
-        y += 20
-        d.text((x_text, y), f"{sp['total']} detections in total", font=_font("small"),
-               fill=COLOURS["black"])
+        line1 = "Last heard " + last.strftime("%d %b, %H:%M")
+        line2 = total_text
+    d.text((x_text, y), line1, font=_font("bold"), fill=COLOURS["red"])
+    y += 20
+    d.text((x_text, y), line2, font=_font("small"), fill=COLOURS["black"])
+
+    nav = f"◀ A    {index + 1} of {count}    D ▶"
+    nav_w = d.textlength(nav, font=_font("small"))
+    if d.textlength(line2, font=_font("small")) + 20 + nav_w > max_w:
+        y += 18                               # no room beside it: own line
+    d.text((width - m - nav_w, y), nav, font=_font("small"), fill=COLOURS["black"])
+    y += 18
+
+    if times_today and y < 180:               # room above the tiles
+        recent = times_today[-TIMES_SHOWN:]
+        label = "Recent: " if len(times_today) > TIMES_SHOWN else "Times: "
+        d.text((x_text, y), _wrap(d, label + "  ".join(recent), _font("small"), max_w)[0],
+               font=_font("small"), fill=COLOURS["black"])
         y += 18
 
     # --- Tiles: 5 equal columns, below the photo and text ---
@@ -644,7 +648,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
         # Description under the tiles: DESCRIPTION_LINES, fewer if no room
         if description:
             ty = bottom + 6
-            room = (footer_y - 2 - ty) // line_h
+            room = (height - m - ty) // line_h
             for line in _wrap_limit(d, description, _font("body"), width - 2 * m,
                                     min(DESCRIPTION_LINES, room)):
                 d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
@@ -664,11 +668,6 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                 ty += 19
         d.text((m, ty + 6), "Add this bird to birdfacts.json for more details.",
                font=_font("small"), fill=COLOURS["blue"])
-
-    # --- Navigation (bottom right) ---
-    nav = f"◀ A    {index + 1} of {count}    D ▶"
-    w = d.textlength(nav, font=_font("small"))
-    d.text((width - m - w, footer_y), nav, font=_font("small"), fill=COLOURS["black"])
 
     if rotate:
         canvas = canvas.rotate(rotate)

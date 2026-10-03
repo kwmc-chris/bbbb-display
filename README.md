@@ -69,7 +69,7 @@ Each script has a **SETTINGS** section at the top. Main ones in `bbbb-display.py
 | `SATURATION` – photo colour 0–1 | 0.5 | `--saturation` |
 | `CHART_STYLE` – `drawn` or `birdnet` | drawn | `--chart-style` |
 
-In `birdbrowser.py`: `DESCRIPTION_LINES` (2), `TILE_COLOURS`, `PAGE_FONTS`, icon `KEYWORDS`. In `birdchart.py`: `COUNT_COLOURS`.
+In `birdbrowser.py`: `DESCRIPTION_LINES` (4), `TILE_COLOURS`, `PAGE_FONTS`, icon `KEYWORDS`. In `birdchart.py`: `COUNT_COLOURS`.
 
 ## Adding a bird to `birdfacts.json`
 
