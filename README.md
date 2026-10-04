@@ -10,6 +10,7 @@ BirdNET-Pi bird display on a Pimoroni Inky Impression 4" (Spectra 6, 600 × 400)
 | `birdinfo.py` | Descriptions, photos and tile facts (Wikipedia, Wikidata, Flickr, `birdfacts.json`); saves results |
 | `birdbrowser.py` | Buttons and browse pages, including tile icons |
 | `birdchart.py` | Today's species-by-hour chart |
+| `birdqr.py` | QR codes on browse pages (needs the `qrcode` package – `update.sh` installs it) |
 | `birdfacts.json` | Your tile facts for ~50 UK birds – edit to add or correct |
 | `imagetest.jpg` | Shown when there's no bird photo |
 | `rc.local` | Boot file; `update.sh` installs it as `/etc/rc.local` |
@@ -23,7 +24,7 @@ Created on the Pi (not in GitHub): `bird_photos/`, `birdinfo_*.json` (saved look
 | Screen | Shows | Button |
 |---|---|---|
 | Live | Latest bird, description, today's totals, recent birds, IP address | **B** (from anywhere) |
-| Browse | Per species: photo, order/family, times heard, five tiles, description | **A** previous / **D** next |
+| Browse | Per species: photo, order/family, times heard, five tiles, description, QR code to its Wikipedia article | **A** previous / **D** next |
 | Chart | Today's species by hour | **C** (again to redraw) |
 
 Browse and chart return to live after 5 minutes without a press.
@@ -53,6 +54,7 @@ python3 bbbb-display.py --chart             # draw the chart
 python3 birdinfo.py "European Robin" "Erithacus rubecula" --refresh   # test lookups for a bird
 python3 birdbrowser.py --test-buttons            # print button presses
 python3 birdbrowser.py --icon-sheet icons.png    # all icons on their tiles
+python3 birdqr.py "https://example.com" --preview qr.png   # test a QR code
 tail -f display.log                              # watch the log (Ctrl+C to stop watching)
 ```
 
@@ -68,8 +70,9 @@ Each script has a **SETTINGS** section at the top. Main ones in `bbbb-display.py
 | `ROTATE` – 180 if upside down | 0 | `--rotate` |
 | `SATURATION` – photo colour 0–1 | 0.5 | `--saturation` |
 | `CHART_STYLE` – `drawn` or `birdnet` | drawn | `--chart-style` |
+| `SHOW_QR` – QR code on browse pages | True | `--no-qr` |
 
-In `birdbrowser.py`: `DESCRIPTION_LINES` (4), `TILE_COLOURS`, `PAGE_FONTS`, icon `KEYWORDS`. In `birdchart.py`: `COUNT_COLOURS`.
+In `birdbrowser.py`: `DESCRIPTION_LINES` (4), `TILE_COLOURS`, `PAGE_FONTS`, icon `KEYWORDS`. In `birdchart.py`: `COUNT_COLOURS`. In `birdqr.py`: `MODULE_SIZES`, `ERROR_CORRECTION`.
 
 ## Adding a bird to `birdfacts.json`
 
@@ -83,4 +86,5 @@ Copy an existing line and change it. The key is the scientific name exactly as B
 | "Device or resource busy" | Another copy is running: `sudo pkill -f bbbb-display.py` |
 | Buttons do nothing | Stop the display, then `python3 birdbrowser.py --test-buttons` |
 | No photo or description | `python3 birdinfo.py "Name" "Scientific name" --refresh` |
+| No QR codes | Needs the `qrcode` package – `update.sh` installs it; check its step 2 |
 | `git pull` stops: "local changes" | A file was edited on the Pi. `git status` shows which; `git checkout -- FILE` discards the Pi's edit |

@@ -9,7 +9,7 @@ birdbrowser.py - buttons and BROWSE pages for bbbb-display.py.
 
 Page: photo top left; names, order/family, times heard and the page counter
 top right; five tiles (habitat, food, nesting, behaviour, UK status) with a
-description below. Birds not in birdfacts.json get a longer description and one global
+description below, and a QR code (made by birdqr.py) linking to the Wikipedia article. Birds not in birdfacts.json get a longer description and one global
 conservation tile instead.
 
 Tile icons are drawn by code, unless you put a PNG in the icons folder
@@ -41,6 +41,8 @@ RECENT_SPECIES_LIMIT = 30         # species in the browse list
 TIMES_SHOWN = 10                  # detection times listed
 DESCRIPTION_LINES = 4             # description under the tiles (fewer if no room)
 FALLBACK_DESCRIPTION_LINES = 5    # description for birds not in birdfacts.json
+
+QR_GAP = 12                       # space between description and QR code
 
 # Layout (pixels)
 PAGE_MARGIN = 14
@@ -135,6 +137,17 @@ def _wrap_limit(draw, text, fnt, max_width, max_lines):
 def _centred(draw, text, fnt, centre_x, y, fill):
     w = draw.textlength(text, font=fnt)
     draw.text((centre_x - w / 2, y), text, font=fnt, fill=fill)
+
+
+def place_qr(canvas, qr_images, right, top, max_bottom):
+    """Paste the largest QR picture that fits, top-right corner at (right, top).
+    Returns its width (0 if none fits or there are none)."""
+    for img in qr_images or []:
+        if top + img.height <= max_bottom:
+            canvas.paste(img, (right - img.width, top))
+            return img.width
+    return 0
+
 
 # =============================================================================
 # 3. BUTTONS  (pressed = pin pulled low; uses gpiod, or RPi.GPIO if missing)
@@ -545,9 +558,9 @@ def draw_tile(canvas, d, centre_x, top, bg, label, value_lines,
 # =============================================================================
 
 def render_page(size, sp, times_today, details, image_path, credit, index, count,
-                description=None, rotate=0):
+                description=None, qr_images=None, rotate=0):
     """One browse page. sp = a recent_species() row; details = get_details();
-    image_path None = no photo."""
+    image_path None = no photo; qr_images = from birdqr.qr_images(), or None."""
     width, height = size
     m = PAGE_MARGIN
     canvas = Image.new("RGB", size, COLOURS["white"])
@@ -628,6 +641,8 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
         return m + col_w * i + col_w / 2
 
     line_h = 18                               # description line height
+    qr_bottom = height - 8                    # QR may sit a little lower than text
+
     if details.get("source") == "file":
         bottom = tile_top
         for i, (key, label) in enumerate([("habitat", "Habitat"), ("food", "Food"),
@@ -640,26 +655,32 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                 _wrap(d, value, _font("tile_value"), col_w - 4),
                 glyph=make_icon(key, value, 64), glyph_colour=ICON_COLOURS[key]))
         code, bg, fg, words = uk_status_tile(details.get("uk_status"))
-        bottom = max(bottom, draw_tile(
+        status_bottom = draw_tile(
             canvas, d, column_centre(4), tile_top, bg, "UK Status", [words],
             code=code, code_colour=fg,
-            code_font=_font("code_small") if len(code) > 3 else _font("code")))
+            code_font=_font("code_small") if len(code) > 3 else _font("code"))
+        bottom = max(bottom, status_bottom)
 
-        # Description under the tiles: DESCRIPTION_LINES, fewer if no room
+        # QR code under the status tile (right); description fills the rest
+        qr_w = place_qr(canvas, qr_images, width - m, status_bottom + 8, qr_bottom)
+        text_w = width - 2 * m - (qr_w + QR_GAP if qr_w else 0)
         if description:
             ty = bottom + 6
             room = (height - m - ty) // line_h
-            for line in _wrap_limit(d, description, _font("body"), width - 2 * m,
+            for line in _wrap_limit(d, description, _font("body"), text_w,
                                     min(DESCRIPTION_LINES, room)):
                 d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
                 ty += line_h
     else:
-        # Not in birdfacts.json: global status tile right, description left
+        # Not in birdfacts.json: global status tile and QR code right, description left
+        right_bottom = tile_top
         if details.get("conservation"):
             code, bg, fg = iucn_tile(details["conservation"])
-            draw_tile(canvas, d, column_centre(4), tile_top, bg, "Conservation",
-                      _wrap(d, details["conservation"], _font("tile_value"), col_w - 4),
-                      code=code, code_colour=fg, code_font=_font("code"))
+            right_bottom = draw_tile(
+                canvas, d, column_centre(4), tile_top, bg, "Conservation",
+                _wrap(d, details["conservation"], _font("tile_value"), col_w - 4),
+                code=code, code_colour=fg, code_font=_font("code")) + 8
+        place_qr(canvas, qr_images, width - m, right_bottom, qr_bottom)
         ty = tile_top
         if description:
             for line in _wrap_limit(d, description, _font("body"), col_w * 4 - 10,

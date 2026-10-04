@@ -9,7 +9,7 @@ Three screens:
     CHART   today's species-by-hour chart               button C
 Button B returns to LIVE; so does BROWSE_TIMEOUT_SECONDS without a press.
 
-Helper files (same folder): birdinfo.py, birdbrowser.py, birdchart.py.
+Helper files (same folder): birdinfo.py, birdbrowser.py, birdchart.py, birdqr.py.
 
 Run (in the Pimoroni environment):
     python3 bbbb-display.py            run normally
@@ -34,6 +34,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 INFO_MODULE = "birdinfo"
 BROWSER_MODULE = "birdbrowser"
 CHART_MODULE = "birdchart"
+QR_MODULE = "birdqr"
 
 # Files and folders
 DATABASE = os.path.join(HOME, "BirdNET-Pi", "scripts", "birds.db")   # [--db]
@@ -51,6 +52,7 @@ ROTATE = 0                       # 180 if mounted upside down       [--rotate]
 MARGIN = 16                      # live screen edge gap (px)        [--margin]
 PREVIEW_SIZE = (600, 400)        # size used for --preview
 CHART_STYLE = "drawn"            # "drawn" or "birdnet" (BirdNET-Pi's image) [--chart-style]
+SHOW_QR = True                   # QR code to Wikipedia on browse pages    [--no-qr]
 
 # Log
 LOG_TIMESTAMPS = True            # start each printed line with date/time
@@ -133,6 +135,7 @@ def load_helper(name):
 birdinfo = load_helper(INFO_MODULE)
 birdbrowser = load_helper(BROWSER_MODULE)
 birdchart = load_helper(CHART_MODULE)
+birdqr = load_helper(QR_MODULE)
 
 # =============================================================================
 # 3. HELPERS
@@ -360,12 +363,14 @@ def show_species_page(display, args, species_list, index):
     today = datetime.now().strftime("%Y-%m-%d")
     times = birdbrowser.species_times(args.db, sp["Com_Name"], today)
 
-    details, description = {}, None
+    details, description, source_url = {}, None, None
     if birdinfo:
         try:
             details = birdinfo.get_details(sp["Com_Name"], sp["Sci_Name"])
             description = birdinfo.get_description(sp["Com_Name"], sp["Sci_Name"],
                                                    sentences=4, max_chars=600)
+            if SHOW_QR and birdqr and not args.no_qr:
+                source_url = birdinfo.get_source_url(sp["Com_Name"], sp["Sci_Name"])
         except Exception as e:
             print(f"Couldn't get details: {e}")
 
@@ -375,7 +380,9 @@ def show_species_page(display, args, species_list, index):
 
     canvas = birdbrowser.render_page(screen_size(display), sp, times, details, image,
                                      credit, index, len(species_list),
-                                     description=description, rotate=args.rotate)
+                                     description=description,
+                                     qr_images=birdqr.qr_images(source_url) if source_url else None,
+                                     rotate=args.rotate)
     print(f"Browsing {index + 1}/{len(species_list)}: {sp['Com_Name']} - updating screen...")
     show(display, canvas, args)
 
@@ -407,6 +414,7 @@ def parse_args():
     p.add_argument("--no-description", action="store_true", help="no description on the live screen")
     p.add_argument("--no-web-image", action="store_true", help="don't download photos")
     p.add_argument("--no-buttons", action="store_true", help="ignore the buttons")
+    p.add_argument("--no-qr", action="store_true", help="no QR codes on browse pages")
     p.add_argument("--check", action="store_true", help="test the database and exit")
     p.add_argument("--once", action="store_true", help="draw the live screen once and exit")
     p.add_argument("--browse", type=int, metavar="N", help="draw browse page N and exit")
