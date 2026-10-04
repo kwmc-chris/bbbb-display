@@ -5,13 +5,14 @@
 # Steps: 1 git pull   2 check files, install missing Python packages
 #        3 sound for birdsong: audio player, headphone socket on, volume
 #        4 stop the display   5 install rc.local (if changed; old one backed up)
-#        6 database test   7 demo (--once)   8 start the display (asks first)
+#        6 database test   7 demo (--once)   8 start the display, show the log
 #
 # Run from this folder, without sudo:
-#   bash update.sh              full update
+#   bash update.sh              full update (Ctrl+C at the end stops watching
+#                               the log - the display keeps running)
 #   bash update.sh --no-pull    use the files already here
-#   bash update.sh --yes        start at the end without asking
-#   bash update.sh --no-start   don't start at the end
+#   bash update.sh --no-log     don't show the log at the end
+#   bash update.sh --no-start   don't start the display at the end
 # =============================================================================
 
 # --- Settings ---
@@ -35,13 +36,15 @@ warn() { echo "  ! $*"; }
 fail() { echo; echo "  ✗ $*"; echo; echo "Update stopped."; exit 1; }
 
 DO_PULL=1
-START=ask
+START=yes
+SHOW_LOG=yes
 for arg in "$@"; do
     case "$arg" in
         --no-pull)  DO_PULL=0 ;;
-        --yes)      START=yes ;;
-        --no-start) START=no ;;
-        -h|--help)  sed -n '2,15p' "$0"; exit 0 ;;
+        --yes)      ;;                  # (old option - starting is now automatic)
+        --no-start) START=no; SHOW_LOG=no ;;
+        --no-log)   SHOW_LOG=no ;;
+        -h|--help)  sed -n '2,16p' "$0"; exit 0 ;;
         *)          echo "Unknown option: $arg (try --help)"; exit 1 ;;
     esac
 done
@@ -187,18 +190,16 @@ main() {
     ok "Check the screen"
 
     step "8. Starting the display"
-    if [ "$START" = ask ]; then
-        read -r -p "  Start it now in the background? [Y/n] " reply
-        case "$reply" in [nN]*) START=no ;; *) START=yes ;; esac
-    fi
     if [ "$START" = yes ]; then
-        # As rc.local does, without the wait; nohup keeps it running after logout
-        nohup "$VENV_PYTHON" -u "$DIR/$MAIN" >> "$DIR/display.log" 2>&1 &
+        # As rc.local does, without the wait. setsid + nohup: keeps running
+        # after Ctrl+C below and after logging out of SSH.
+        setsid nohup "$VENV_PYTHON" -u "$DIR/$MAIN" >> "$DIR/display.log" 2>&1 < /dev/null &
         sleep 3
         if pgrep -f "python3? .*$MAIN" > /dev/null; then
-            ok "Running (it redraws once more in ~30 s). Log: tail -f $DIR/display.log"
+            ok "Running (it redraws once more in ~30 s)"
         else
             warn "It stopped - see: tail -n 30 $DIR/display.log"
+            SHOW_LOG=no
         fi
     else
         note "Not started - it starts at the next boot"
@@ -209,6 +210,13 @@ main() {
         echo "Update finished - reboot to switch on the headphone socket:  sudo reboot"
     else
         echo "Update finished."
+    fi
+
+    if [ "$SHOW_LOG" = yes ]; then
+        echo
+        echo "Showing the live log - press Ctrl+C to stop watching (the display keeps running)."
+        echo
+        exec tail -n 15 -f "$DIR/display.log"
     fi
 }
 

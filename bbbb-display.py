@@ -12,6 +12,7 @@ Buttons (hints are shown on each screen):
     B  back to LIVE (also after BROWSE_TIMEOUT_SECONDS without a press)
     C  DATA screen (pressed there: redraw)
     D  play / stop the birdsong of the species on screen (BROWSE only)
+    A + D held for SHUTDOWN_HOLD_SECONDS: show "Sleeping since ..." and power off
 
 Helper files (same folder): birdinfo.py, birdbrowser.py, birdchart.py, birdqr.py,
 birdsong.py.
@@ -20,6 +21,7 @@ Run (in the Pimoroni environment):
     python3 bbbb-display.py            run normally
     python3 bbbb-display.py --help     list all options
     --once / --browse N / --chart           draw one screen and exit
+    --sleep-screen                          draw the "sleeping" screen (no shutdown)
     --preview file.png                      save a PNG instead of using the screen
 
 Sections: 1 Settings, 2 Imports, 3 Helpers, 4 Database, 5 Live screen,
@@ -70,6 +72,13 @@ BUTTON_HINTS = {
 HINT_FONTS = {"key": ("DejaVuSans-Bold.ttf", 11), "label": ("DejaVuSans.ttf", 13)}
 HINT_ROW = 20                    # height kept free for the hints (px)
 
+# Power off: hold A and D together. The live screen then shows SLEEP_TEXT
+# (time codes: %H hour, %M minute, %d day, %b month) and the Pi shuts down.
+SHUTDOWN_ENABLED = True
+SHUTDOWN_HOLD_SECONDS = 3
+SLEEP_TEXT = "Sleeping since %H:%M"
+SHUTDOWN_COMMAND = ["sudo", "-n", "shutdown", "-h", "now"]
+
 # Log
 LOG_TIMESTAMPS = True            # start each printed line with date/time
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -102,6 +111,7 @@ import argparse
 import importlib
 import socket
 import sqlite3
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -257,7 +267,7 @@ def today_stats(db_path, date):
 # =============================================================================
 
 def render_live(size, image_path, det, total, species, recent, args,
-                description=None, credit=None):
+                description=None, credit=None, sleeping_since=None):
     width, height = size
     half = width // 2
     m = args.margin
@@ -319,14 +329,20 @@ def render_live(size, image_path, det, total, species, recent, args,
 
     # Footer: IP address left, update time right
     footer_y = height - m - 16
-    ip = ip_address()
-    d.text((x, footer_y), f"IP {ip}" if ip else "No network", font=font("small"),
-           fill=COLOURS["black"])
-    updated = datetime.now().strftime("Updated %H:%M")
-    w = d.textlength(updated, font=font("small"))
-    d.text((width - m - w, footer_y), updated, font=font("small"), fill=COLOURS["green"])
+    if not sleeping_since:                    # no IP address once it's off
+        ip = ip_address()
+        d.text((x, footer_y), f"IP {ip}" if ip else "No network", font=font("small"),
+               fill=COLOURS["black"])
+    # Bottom right: update time, or "Sleeping since ..." when powering off
+    if sleeping_since:
+        status, colour = sleeping_since.strftime(SLEEP_TEXT), COLOURS["red"]
+    else:
+        status, colour = datetime.now().strftime("Updated %H:%M"), COLOURS["green"]
+    w = d.textlength(status, font=font("small"))
+    d.text((width - m - w, footer_y), status, font=font("small"), fill=colour)
 
-    draw_hints(canvas, "live", x, footer_y - HINT_ROW - 4)
+    if not sleeping_since:                    # buttons don't work while it's off
+        draw_hints(canvas, "live", x, footer_y - HINT_ROW - 4)
     return canvas
 
 # =============================================================================
@@ -376,7 +392,7 @@ def show(display, canvas, args):
     display.show()
 
 
-def show_live(display, args):
+def show_live(display, args, sleeping_since=None):
     """Draw LIVE. Returns (date, time, name) of the bird shown, or None."""
     det = latest_detection(args.db)
     if det is None:
@@ -393,7 +409,7 @@ def show_live(display, args):
             print(f"Couldn't get description: {e}")
 
     canvas = render_live(screen_size(display), image, det, total, species, recent, args,
-                         description, credit)
+                         description, credit, sleeping_since)
     print(f"{det['Time']}  {det['Com_Name']} - updating screen...")
     show(display, canvas, args)
     return (det["Date"], det["Time"], det["Com_Name"])
@@ -454,6 +470,22 @@ def stop_song():
         birdsong.stop()
 
 
+def power_off(display, args):
+    """A + D held: show "Sleeping since ..." on the live screen, then shut down.
+    The screen keeps its picture with the power off. Returns False if the
+    shutdown was refused."""
+    stop_song()
+    now = datetime.now()
+    print("A + D held - showing the sleeping screen, then shutting down.")
+    show_live(display, args, sleeping_since=now)       # waits until drawn
+    result = subprocess.run(SHUTDOWN_COMMAND, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Shutdown failed ({result.stderr.strip() or result.returncode}) - "
+              f"check 'sudo -n shutdown' works for this user. Carrying on.")
+        return False
+    return True
+
+
 # =============================================================================
 # 7. COMMAND LINE  (defaults come from SETTINGS)
 # =============================================================================
@@ -480,6 +512,8 @@ def parse_args():
     p.add_argument("--once", action="store_true", help="draw the live screen once and exit")
     p.add_argument("--browse", type=int, metavar="N", help="draw browse page N and exit")
     p.add_argument("--chart", action="store_true", help="draw today's chart and exit")
+    p.add_argument("--sleep-screen", action="store_true",
+                   help="draw the 'sleeping' live screen and exit (doesn't shut down)")
     p.add_argument("--preview", metavar="FILE.png", help="save a PNG instead of using the screen")
     return p.parse_args()
 
@@ -516,6 +550,9 @@ def main():
         if species_list:
             show_species_page(display, args, species_list, min(args.browse, len(species_list) - 1))
         return
+    if args.sleep_screen:
+        show_live(display, args, sleeping_since=datetime.now())
+        return
     if args.once or args.preview:
         show_live(display, args)
         return
@@ -540,6 +577,16 @@ def main():
         presses = buttons.wait(args.poll) if buttons else (time.sleep(args.poll) or [])
 
         try:
+            # A + D held down together: power off. A quick press of either
+            # is released at once, so held() returns straight away.
+            if (SHUTDOWN_ENABLED and buttons and ("A" in presses or "D" in presses)
+                    and buttons.held({"A", "D"}, max(0, SHUTDOWN_HOLD_SECONDS -
+                                                     birdbrowser.EXTRA_PRESS_WAIT_SECONDS))):
+                if power_off(display, args):
+                    return
+                mode, last_shown, last_refresh = "live", None, 0.0     # redraw normally
+                continue
+
             # C: data screen (pressed there: redraw it)
             if "C" in presses and birdchart:
                 stop_song()

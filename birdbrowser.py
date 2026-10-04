@@ -154,7 +154,8 @@ def place_qr(canvas, qr_images, right, top, max_bottom):
 # =============================================================================
 
 class Buttons:
-    """presses = Buttons().wait(30)  ->  e.g. ["D", "D"], or [] after 30 s"""
+    """presses = Buttons().wait(30)  ->  e.g. ["D", "D"], or [] after 30 s
+    held({"A", "D"}, 3)            ->  True if those buttons stay down for 3 s"""
 
     def __init__(self):
         self._last_press = {}
@@ -171,7 +172,8 @@ class Buttons:
     def _setup_gpiod(self):
         import gpiod
         import gpiodevice
-        from gpiod.line import Bias, Direction, Edge
+        from gpiod.line import Bias, Direction, Edge, Value
+        self._down_value = Value.INACTIVE       # pulled low = pressed
 
         settings = gpiod.LineSettings(direction=Direction.INPUT, bias=Bias.PULL_UP,
                                       edge_detection=Edge.FALLING)
@@ -184,6 +186,7 @@ class Buttons:
 
     def _setup_rpigpio(self):
         import RPi.GPIO as GPIO
+        self._gpio = GPIO
         self._queue = queue.Queue()
         GPIO.setmode(GPIO.BCM)
         for label, pin in BUTTON_PINS.items():
@@ -219,6 +222,32 @@ class Buttons:
             except queue.Empty:
                 pass
         return presses
+
+    def pressed_now(self):
+        """Set of buttons being held down right now, e.g. {"A", "D"}."""
+        if self.backend == "gpiod":
+            values = self._request.get_values()
+            return {self._offsets[o] for o, v in zip(self._request.offsets, values)
+                    if v == self._down_value}
+        return {label for label, pin in BUTTON_PINS.items()
+                if self._gpio.input(pin) == self._gpio.LOW}
+
+    def held(self, labels, seconds, join_seconds=1.0):
+        """True if all `labels` are down together (allowing join_seconds for
+        the second one to be pressed) and stay down for `seconds`.
+        Returns False quickly when they're released (a normal press)."""
+        labels = set(labels)
+        start = time.monotonic()
+        while not labels <= self.pressed_now():
+            if not (labels & self.pressed_now()) or time.monotonic() - start > join_seconds:
+                return False
+            time.sleep(0.05)
+        start = time.monotonic()
+        while time.monotonic() - start < seconds:
+            if not labels <= self.pressed_now():
+                return False
+            time.sleep(0.05)
+        return True
 
     def clear(self):
         """Discard waiting presses."""
