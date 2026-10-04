@@ -5,11 +5,16 @@ bbbb-display.py - main script for the BirdNET-Pi Inky Impression display.
 Watches BirdNET-Pi's database and shows birds on the e-ink screen.
 Three screens:
     LIVE    latest bird heard (default; redraws when a new bird is heard)
-    BROWSE  one page per species, most recent first     buttons A / D
-    CHART   today's species-by-hour chart               button C
-Button B returns to LIVE; so does BROWSE_TIMEOUT_SECONDS without a press.
+    BROWSE  one page per species, most recent first
+    DATA    today's species-by-hour chart
+Buttons (hints are shown on each screen):
+    A  browse: first press = most recent species, each further press = next older
+    B  back to LIVE (also after BROWSE_TIMEOUT_SECONDS without a press)
+    C  DATA screen (pressed there: redraw)
+    D  play / stop the birdsong of the species on screen (BROWSE only)
 
-Helper files (same folder): birdinfo.py, birdbrowser.py, birdchart.py, birdqr.py.
+Helper files (same folder): birdinfo.py, birdbrowser.py, birdchart.py, birdqr.py,
+birdsong.py.
 
 Run (in the Pimoroni environment):
     python3 bbbb-display.py            run normally
@@ -35,6 +40,7 @@ INFO_MODULE = "birdinfo"
 BROWSER_MODULE = "birdbrowser"
 CHART_MODULE = "birdchart"
 QR_MODULE = "birdqr"
+SONG_MODULE = "birdsong"
 
 # Files and folders
 DATABASE = os.path.join(HOME, "BirdNET-Pi", "scripts", "birds.db")   # [--db]
@@ -53,6 +59,16 @@ MARGIN = 16                      # live screen edge gap (px)        [--margin]
 PREVIEW_SIZE = (600, 400)        # size used for --preview
 CHART_STYLE = "drawn"            # "drawn" or "birdnet" (BirdNET-Pi's image) [--chart-style]
 SHOW_QR = True                   # QR code to Wikipedia on browse pages    [--no-qr]
+
+# Button hints shown on each screen: (button, label)
+SHOW_BUTTON_HINTS = True
+BUTTON_HINTS = {
+    "live": [("A", "browse"), ("C", "data")],
+    "browse": [("A", "next"), ("B", "live"), ("C", "data"), ("D", "birdsong")],
+    "chart": [("A", "browse"), ("B", "live")],
+}
+HINT_FONTS = {"key": ("DejaVuSans-Bold.ttf", 11), "label": ("DejaVuSans.ttf", 13)}
+HINT_ROW = 20                    # height kept free for the hints (px)
 
 # Log
 LOG_TIMESTAMPS = True            # start each printed line with date/time
@@ -136,6 +152,7 @@ birdinfo = load_helper(INFO_MODULE)
 birdbrowser = load_helper(BROWSER_MODULE)
 birdchart = load_helper(CHART_MODULE)
 birdqr = load_helper(QR_MODULE)
+birdsong = load_helper(SONG_MODULE)
 
 # =============================================================================
 # 3. HELPERS
@@ -175,6 +192,30 @@ def ip_address():
             return s.getsockname()[0]
     except OSError:
         return None
+
+def draw_hints(canvas, screen, x, y, align="left"):
+    """Button hints, e.g. [A] browse  [C] data. (x, y) = top-left, or
+    top-right with align="right"."""
+    if not SHOW_BUTTON_HINTS:
+        return
+    d = ImageDraw.Draw(canvas)
+    d.fontmode = "1"
+    f_key = font(*HINT_FONTS["key"])
+    f_label = font(*HINT_FONTS["label"])
+    box, gap = 15, 12                     # key box size, space between hints
+    items = BUTTON_HINTS.get(screen, [])
+    total = sum(box + 4 + d.textlength(label, font=f_label) for _, label in items) \
+        + gap * (len(items) - 1)
+    if align == "right":
+        x -= total
+    for key, label in items:
+        d.rounded_rectangle((x, y, x + box, y + box), radius=3, fill=COLOURS["black"])
+        kw = d.textlength(key, font=f_key)
+        d.text((x + (box - kw) / 2, y + 1), key, font=f_key, fill=COLOURS["white"])
+        x += box + 4
+        d.text((x, y), label, font=f_label, fill=COLOURS["black"])
+        x += d.textlength(label, font=f_label) + gap
+
 
 # =============================================================================
 # 4. DATABASE  (BirdNET-Pi's "detections" table, opened read-only)
@@ -271,7 +312,7 @@ def render_live(size, image_path, det, total, species, recent, args,
         d.text((x, y), "Also heard recently:", font=font("heading"), fill=COLOURS["black"])
         y += 22
         for name in others:
-            if y + 20 > height - m - 22:     # keep clear of the footer
+            if y + 20 > height - m - 22 - HINT_ROW:     # keep clear of hints + footer
                 break
             d.text((x + 8, y), f"• {name}", font=font("small"), fill=COLOURS["black"])
             y += 21
@@ -285,8 +326,7 @@ def render_live(size, image_path, det, total, species, recent, args,
     w = d.textlength(updated, font=font("small"))
     d.text((width - m - w, footer_y), updated, font=font("small"), fill=COLOURS["green"])
 
-    if args.rotate:
-        canvas = canvas.rotate(args.rotate)
+    draw_hints(canvas, "live", x, footer_y - HINT_ROW - 4)
     return canvas
 
 # =============================================================================
@@ -323,6 +363,8 @@ def screen_size(display):
 
 def show(display, canvas, args):
     """Send to the e-ink (~25 s), or save a PNG with --preview."""
+    if args.rotate:
+        canvas = canvas.rotate(args.rotate)
     if display is None:
         canvas.save(args.preview)
         print(f"Preview saved to {args.preview}")
@@ -382,16 +424,35 @@ def show_species_page(display, args, species_list, index):
                                      credit, index, len(species_list),
                                      description=description,
                                      qr_images=birdqr.qr_images(source_url) if source_url else None,
-                                     rotate=args.rotate)
+                                     reserve_bottom=HINT_ROW if SHOW_BUTTON_HINTS else 0)
+    m = birdbrowser.PAGE_MARGIN
+    draw_hints(canvas, "browse", m, canvas.height - m - 15)
     print(f"Browsing {index + 1}/{len(species_list)}: {sp['Com_Name']} - updating screen...")
     show(display, canvas, args)
 
 
 def show_chart(display, args):
-    canvas = birdchart.make_chart(screen_size(display), args.db, args.chart_style,
-                                  rotate=args.rotate)
+    canvas = birdchart.make_chart(screen_size(display), args.db, args.chart_style)
+    m = birdchart.CHART_MARGIN
+    draw_hints(canvas, "chart", canvas.width - m, canvas.height - m - 15, align="right")
     print("Showing today's chart - updating screen...")
     show(display, canvas, args)
+
+def play_song(args, sp):
+    """Button D: play (or stop) the birdsong for species sp."""
+    if birdsong:
+        try:
+            birdsong.toggle(args.db, sp["Com_Name"])
+        except Exception as e:
+            print(f"Couldn't play birdsong: {e}")
+    else:
+        print("birdsong.py not loaded - can't play birdsong.")
+
+
+def stop_song():
+    if birdsong:
+        birdsong.stop()
+
 
 # =============================================================================
 # 7. COMMAND LINE  (defaults come from SETTINGS)
@@ -463,7 +524,7 @@ def main():
     if birdbrowser and not args.no_buttons:
         try:
             buttons = birdbrowser.Buttons()
-            print(f"Buttons ready ({buttons.backend}): A/D browse, C chart, B live screen.")
+            print(f"Buttons ready ({buttons.backend}): A browse, B live, C data, D birdsong.")
         except Exception as e:
             print(f"Buttons not available, live screen only ({e})")
 
@@ -479,13 +540,17 @@ def main():
         presses = buttons.wait(args.poll) if buttons else (time.sleep(args.poll) or [])
 
         try:
+            # C: data screen (pressed there: redraw it)
             if "C" in presses and birdchart:
+                stop_song()
                 mode = "chart"
                 show_chart(display, args)
                 last_press = time.time()
                 continue
 
+            # B: back to the live screen
             if "B" in presses and mode != "live":
+                stop_song()
                 mode = "live"
                 last_shown = show_live(display, args)
                 last_refresh = time.time()
@@ -493,23 +558,33 @@ def main():
                     buttons.clear()          # drop presses made during the redraw
                 continue
 
-            # D = +1 (older), A = -1 (newer)
-            steps = presses.count("D") - presses.count("A")
-            if "A" in presses or "D" in presses:
+            # A: browse. First press = most recent species; each further press = next older
+            steps = presses.count("A")
+            if steps:
+                stop_song()
                 if mode != "browse":
-                    # First press shows the most recent species
                     species_list = birdbrowser.recent_species(args.db)
                     index, mode = 0, "browse"
-                    steps -= 1 if steps > 0 else -1 if steps < 0 else 0
+                    steps -= 1
                 if species_list:
-                    index = (index + steps) % len(species_list)      # wraps round
+                    index = (index + steps) % len(species_list)      # wraps round to the start
+                    if "D" in presses:       # D pressed too: start the song before the slow redraw
+                        play_song(args, species_list[index])
                     show_species_page(display, args, species_list, index)
                 last_press = time.time()
+                continue
+
+            # D: play / stop the birdsong of the species on screen (browse only)
+            if "D" in presses:
+                if mode == "browse" and species_list:
+                    play_song(args, species_list[index])
+                    last_press = time.time()
                 continue
 
             if mode in ("browse", "chart"):
                 if time.time() - last_press >= args.browse_timeout:
                     print("No button presses for a while - back to the live screen.")
+                    stop_song()
                     mode = "live"
                     last_shown = show_live(display, args)
                     last_refresh = time.time()

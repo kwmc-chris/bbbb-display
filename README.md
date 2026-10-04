@@ -11,6 +11,7 @@ BirdNET-Pi bird display on a Pimoroni Inky Impression 4" (Spectra 6, 600 × 400)
 | `birdbrowser.py` | Buttons and browse pages, including tile icons |
 | `birdchart.py` | Today's species-by-hour chart |
 | `birdqr.py` | QR codes on browse pages (needs the `qrcode` package – `update.sh` installs it) |
+| `birdsong.py` | Plays BirdNET-Pi's recordings (button D); picks USB speaker or headphone socket |
 | `birdfacts.json` | Your tile facts for ~50 UK birds – edit to add or correct |
 | `imagetest.jpg` | Shown when there's no bird photo |
 | `rc.local` | Boot file; `update.sh` installs it as `/etc/rc.local` |
@@ -21,13 +22,22 @@ Created on the Pi (not in GitHub): `bird_photos/`, `birdinfo_*.json` (saved look
 
 ## Screens and buttons
 
-| Screen | Shows | Button |
+| Screen | Shows | Hints shown |
 |---|---|---|
-| Live | Latest bird, description, today's totals, recent birds, IP address | **B** (from anywhere) |
-| Browse | Per species: photo, order/family, times heard, five tiles, description, QR code to its Wikipedia article | **A** previous / **D** next |
-| Chart | Today's species by hour | **C** (again to redraw) |
+| Live | Latest bird, description, today's totals, recent birds, IP address | A browse, C data |
+| Browse | Per species: photo, order/family, times heard, five tiles, description, QR code to its Wikipedia article | A next, B live, C data, D birdsong |
+| Data | Today's species by hour | A browse, B live |
 
-Browse and chart return to live after 5 minutes without a press.
+| Button | Does |
+|---|---|
+| **A** | Browse: first press shows the most recent species, each further press the next older one (back to the start after the oldest) |
+| **B** | Back to the live screen |
+| **C** | Data screen (pressed there: redraw it) |
+| **D** | Browse pages only: play the bird's song recorded by BirdNET-Pi; press again to stop |
+
+Browse and data return to live after 5 minutes without a press. Hints are set by `BUTTON_HINTS` in `bbbb-display.py`.
+
+**Birdsong** plays through a USB speaker if one is plugged in, otherwise the 3.5 mm headphone socket – checked at every press. The Pi's default sound device isn't changed, as BirdNET-Pi records through it. Only recordings BirdNET-Pi still has on disk can be played (it deletes old ones).
 
 ## Updating
 
@@ -55,6 +65,8 @@ python3 birdinfo.py "European Robin" "Erithacus rubecula" --refresh   # test loo
 python3 birdbrowser.py --test-buttons            # print button presses
 python3 birdbrowser.py --icon-sheet icons.png    # all icons on their tiles
 python3 birdqr.py "https://example.com" --preview qr.png   # test a QR code
+python3 birdsong.py --output                     # which speaker birdsong will use
+python3 birdsong.py "European Robin"             # play a recording now
 tail -f display.log                              # watch the log (Ctrl+C to stop watching)
 ```
 
@@ -71,8 +83,9 @@ Each script has a **SETTINGS** section at the top. Main ones in `bbbb-display.py
 | `SATURATION` – photo colour 0–1 | 0.5 | `--saturation` |
 | `CHART_STYLE` – `drawn` or `birdnet` | drawn | `--chart-style` |
 | `SHOW_QR` – QR code on browse pages | True | `--no-qr` |
+| `SHOW_BUTTON_HINTS`, `BUTTON_HINTS` – button hints on each screen | on | – |
 
-In `birdbrowser.py`: `DESCRIPTION_LINES` (4), `TILE_COLOURS`, `PAGE_FONTS`, icon `KEYWORDS`. In `birdchart.py`: `COUNT_COLOURS`. In `birdqr.py`: `MODULE_SIZES`, `ERROR_CORRECTION`.
+In `birdbrowser.py`: `DESCRIPTION_LINES` (4), `TILE_COLOURS`, `PAGE_FONTS`, icon `KEYWORDS`. In `birdchart.py`: `COUNT_COLOURS`. In `birdqr.py`: `MODULE_SIZES`, `ERROR_CORRECTION`. In `birdsong.py`: `RECORDING_CHOICE` (`best` or `latest`), `AUDIO_OUTPUT` (`auto`, or a fixed device).
 
 ## Adding a bird to `birdfacts.json`
 
@@ -87,4 +100,5 @@ Copy an existing line and change it. The key is the scientific name exactly as B
 | Buttons do nothing | Stop the display, then `python3 birdbrowser.py --test-buttons` |
 | No photo or description | `python3 birdinfo.py "Name" "Scientific name" --refresh` |
 | No QR codes | Needs the `qrcode` package – `update.sh` installs it; check its step 2 |
+| No birdsong | `python3 birdsong.py "Name"` shows what fails. No player: `sudo apt install mpg123`. Too quiet: `alsamixer` (F6 to pick the card) |
 | `git pull` stops: "local changes" | A file was edited on the Pi. `git status` shows which; `git checkout -- FILE` discards the Pi's edit |

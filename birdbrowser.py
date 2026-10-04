@@ -39,7 +39,7 @@ EXTRA_PRESS_WAIT_SECONDS = 0.6    # wait to catch quick multiple presses
 # Content
 RECENT_SPECIES_LIMIT = 30         # species in the browse list
 TIMES_SHOWN = 10                  # detection times listed
-DESCRIPTION_LINES = 4             # description under the tiles (fewer if no room)
+DESCRIPTION_LINES = 4             # description under the tiles (fewer if no room or hints shown)
 FALLBACK_DESCRIPTION_LINES = 5    # description for birds not in birdfacts.json
 
 QR_GAP = 12                       # space between description and QR code
@@ -558,9 +558,10 @@ def draw_tile(canvas, d, centre_x, top, bg, label, value_lines,
 # =============================================================================
 
 def render_page(size, sp, times_today, details, image_path, credit, index, count,
-                description=None, qr_images=None, rotate=0):
+                description=None, qr_images=None, reserve_bottom=0, rotate=0):
     """One browse page. sp = a recent_species() row; details = get_details();
-    image_path None = no photo; qr_images = from birdqr.qr_images(), or None."""
+    image_path None = no photo; qr_images = from birdqr.qr_images(), or None;
+    reserve_bottom = pixels kept free at the bottom left (button hints)."""
     width, height = size
     m = PAGE_MARGIN
     canvas = Image.new("RGB", size, COLOURS["white"])
@@ -619,7 +620,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
     y += 20
     d.text((x_text, y), line2, font=_font("small"), fill=COLOURS["black"])
 
-    nav = f"◀ A    {index + 1} of {count}    D ▶"
+    nav = f"{index + 1} of {count}"
     nav_w = d.textlength(nav, font=_font("small"))
     if d.textlength(line2, font=_font("small")) + 20 + nav_w > max_w:
         y += 18                               # no room beside it: own line
@@ -666,7 +667,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
         text_w = width - 2 * m - (qr_w + QR_GAP if qr_w else 0)
         if description:
             ty = bottom + 6
-            room = (height - m - ty) // line_h
+            room = (height - m - reserve_bottom - ty) // line_h
             for line in _wrap_limit(d, description, _font("body"), text_w,
                                     min(DESCRIPTION_LINES, room)):
                 d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
@@ -683,8 +684,9 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
         place_qr(canvas, qr_images, width - m, right_bottom, qr_bottom)
         ty = tile_top
         if description:
+            room = (height - m - reserve_bottom - ty - 26) // 19     # leave room for the note
             for line in _wrap_limit(d, description, _font("body"), col_w * 4 - 10,
-                                    FALLBACK_DESCRIPTION_LINES):
+                                    min(FALLBACK_DESCRIPTION_LINES, room)):
                 d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
                 ty += 19
         d.text((m, ty + 6), "Add this bird to birdfacts.json for more details.",

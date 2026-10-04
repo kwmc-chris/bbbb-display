@@ -212,9 +212,7 @@ def render_chart(size, date, counts, rotate=0):
         label = f"{low}+" if high is None else f"{low}–{high}"
         d.text((x, ly), label, font=_font("small"), fill=COLOURS["black"])
         x += d.textlength(label, font=_font("small")) + 12
-    hint = "C: refresh   B: back"
-    w = d.textlength(hint, font=_font("small"))
-    d.text((width - m - w, ly), hint, font=_font("small"), fill=COLOURS["black"])
+    # (button hints are drawn bottom right by bbbb-display.py)
 
     if rotate:
         canvas = canvas.rotate(rotate)

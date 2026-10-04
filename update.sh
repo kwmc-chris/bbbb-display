@@ -2,7 +2,8 @@
 # =============================================================================
 # update.sh - install the latest BirdNET-Pi display from GitHub
 #
-# Steps: 1 git pull   2 check files (and install missing Python packages)
+# Steps: 1 git pull   2 check files, install missing Python packages, report the
+#        speaker for birdsong (USB speaker if plugged in, else headphone socket)
 #        3 stop the display   4 install rc.local
 #        (if changed; old one backed up in /etc)   5 database test
 #        6 demo (--once)   7 start the display (asks first)
@@ -38,7 +39,7 @@ for arg in "$@"; do
         --no-pull)  DO_PULL=0 ;;
         --yes)      START=yes ;;
         --no-start) START=no ;;
-        -h|--help)  sed -n '2,15p' "$0"; exit 0 ;;
+        -h|--help)  sed -n '2,16p' "$0"; exit 0 ;;
         *)          echo "Unknown option: $arg (try --help)"; exit 1 ;;
     esac
 done
@@ -87,6 +88,14 @@ main() {
             warn "Couldn't install $pkg - the display works, but without that feature"
         fi
     done
+    # Birdsong (button D): USB speaker if plugged in, else headphone socket
+    if [ -f birdsong.py ]; then
+        if "$VENV_PYTHON" birdsong.py --players | grep -q "none"; then
+            warn "No audio player - button D can't play birdsong (install one: sudo apt install mpg123)"
+        else
+            ok "Birdsong plays through: $("$VENV_PYTHON" birdsong.py --output)"
+        fi
+    fi
     if [ -f birdfacts.json ]; then
         if "$VENV_PYTHON" -m json.tool birdfacts.json > /dev/null 2> /tmp/birdfacts_error; then
             ok "birdfacts.json is valid"
