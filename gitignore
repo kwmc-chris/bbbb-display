@@ -1,0 +1,13 @@
+# Created on the Pi - kept out of GitHub
+bird_photos/
+bird_songs/
+aab_images/
+birdinfo_*.json
+display.log
+__pycache__/
+*.pyc
+
+# Previews saved in the main folder (icons/ PNGs are kept)
+/*.png
+
+.DS_Store

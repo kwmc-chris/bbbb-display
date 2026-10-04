@@ -11,7 +11,7 @@ BirdNET-Pi bird display on a Pimoroni Inky Impression 4" (Spectra 6, 600 × 400)
 | `birdbrowser.py` | Buttons and browse pages, including tile icons |
 | `birdchart.py` | Today's species-by-hour chart |
 | `birdqr.py` | QR codes on browse pages (needs the `qrcode` package – `update.sh` installs it) |
-| `birdsong.py` | Plays BirdNET-Pi's recordings (button D); picks USB speaker or headphone socket |
+| `birdsong.py` | Plays the bird's song (button D): Wikimedia recording, else BirdNET-Pi's clip; levels the volume; picks USB speaker or headphone socket |
 | `birdfacts.json` | Your tile facts for ~50 UK birds – edit to add or correct |
 | `imagetest.jpg` | Shown when there's no bird photo |
 | `rc.local` | Boot file; `update.sh` installs it as `/etc/rc.local` |
@@ -33,12 +33,12 @@ Created on the Pi (not in GitHub): `bird_photos/`, `birdinfo_*.json` (saved look
 | **A** | Browse: first press shows the most recent species, each further press the next older one (back to the start after the oldest) |
 | **B** | Back to the live screen |
 | **C** | Data screen (pressed there: redraw it) |
-| **D** | Browse pages only: play the bird's song recorded by BirdNET-Pi; press again to stop |
+| **D** | Browse pages only: play the bird's song; press again to stop |
 | **A + D** held 3 s | Power off: the live screen shows "Sleeping since 16:05" (it stays visible with the power off), then the Pi shuts down safely. Unplug and replug the power to start it again |
 
 Browse and data return to live after 5 minutes without a press. Hints are set by `BUTTON_HINTS` in `bbbb-display.py`.
 
-**Birdsong** plays through a USB speaker if one is plugged in, otherwise the 3.5 mm headphone socket – checked at every press. The Pi's default sound device isn't changed, as BirdNET-Pi records through it. Only recordings BirdNET-Pi still has on disk can be played (it deletes old ones).
+**Birdsong** comes from the species' recording on Wikimedia Commons if there is one, otherwise BirdNET-Pi's own clip (only while it's still on disk). Every clip is levelled with ffmpeg – rumble removed, brought to the same loudness, peaks limited, trimmed to 20 s – and saved in `bird_songs/`, so the first press for a bird takes a moment longer. It plays through a USB speaker if one is plugged in (not the mic adapter), otherwise the 3.5 mm headphone socket. The Pi's default sound device isn't changed, as BirdNET-Pi records through it.
 
 ## Setting up a new Pi
 
@@ -87,7 +87,7 @@ python3 birdbrowser.py --test-buttons            # print button presses
 python3 birdbrowser.py --icon-sheet icons.png    # all icons on their tiles
 python3 birdqr.py "https://example.com" --preview qr.png   # test a QR code
 python3 birdsong.py --output                     # which speaker birdsong will use
-python3 birdsong.py "European Robin"             # play a recording now
+python3 birdsong.py "European Robin" "Erithacus rubecula"   # play the song now
 tail -f display.log                              # watch the log (Ctrl+C to stop watching)
 ```
 
@@ -107,7 +107,7 @@ Each script has a **SETTINGS** section at the top. Main ones in `bbbb-display.py
 | `SHOW_BUTTON_HINTS`, `BUTTON_HINTS` – button hints on each screen | on | – |
 | `SHUTDOWN_ENABLED`, `SHUTDOWN_HOLD_SECONDS`, `SLEEP_TEXT` – power off with A + D | on, 3, `Sleeping since %H:%M` | – |
 
-In `birdbrowser.py`: `DESCRIPTION_LINES` (4), `TILE_COLOURS`, `PAGE_FONTS`, icon `KEYWORDS`. In `birdchart.py`: `COUNT_COLOURS`. In `birdqr.py`: `MODULE_SIZES`, `ERROR_CORRECTION`. In `birdsong.py`: `RECORDING_CHOICE` (`best` or `latest`), `AUDIO_OUTPUT` (`auto`, or a fixed device).
+In `birdbrowser.py`: `DESCRIPTION_LINES` (4), `TILE_COLOURS`, `PAGE_FONTS`, icon `KEYWORDS`. In `birdchart.py`: `COUNT_COLOURS`. In `birdqr.py`: `MODULE_SIZES`, `ERROR_CORRECTION`. In `birdsong.py`: `LOUDNESS` (-20; e.g. -16 louder, -24 quieter), `SONG_SOURCES` (order: `wikimedia`, `birdnet`), `CLIP_SECONDS`, `HIGHPASS_HZ`, `RECORDING_CHOICE`, `AUDIO_OUTPUT`. Changing the mastering settings prepares fresh clips automatically.
 
 ## Adding a bird to `birdfacts.json`
 
@@ -123,5 +123,6 @@ Copy an existing line and change it. The key is the scientific name exactly as B
 | No photo or description | `python3 birdinfo.py "Name" "Scientific name" --refresh` |
 | A + D hold doesn't power off | The log shows why. "Shutdown failed": the user needs `sudo` without a password (normal on Raspberry Pi OS) |
 | No QR codes | Needs the `qrcode` package – `update.sh` installs it; check its step 2 |
-| No birdsong | `python3 birdsong.py --output` shows the speaker; `python3 birdsong.py "Name"` plays one. Test the socket: `speaker-test -D plughw:CARD=Headphones,DEV=0 -c 2 -t wav -l 1` |
+| No birdsong | `python3 birdsong.py "Name" "Scientific name"` shows where it fails; `--output` shows the speaker; `--check` checks ffmpeg and aplay. Test the socket: `speaker-test -D plughw:CARD=Headphones,DEV=0 -c 2 -t wav -l 1` |
+| Birdsong too loud/quiet | `LOUDNESS` in `birdsong.py` (all clips), or `HEADPHONE_VOLUME` in `update.sh` (the socket) |
 | `git pull` stops: "local changes" | A file was edited on the Pi. `git status` shows which; `git checkout -- FILE` discards the Pi's edit |

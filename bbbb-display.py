@@ -458,7 +458,7 @@ def play_song(args, sp):
     """Button D: play (or stop) the birdsong for species sp."""
     if birdsong:
         try:
-            birdsong.toggle(args.db, sp["Com_Name"])
+            birdsong.toggle(args.db, sp["Com_Name"], sp.get("Sci_Name"))
         except Exception as e:
             print(f"Couldn't play birdsong: {e}")
     else:

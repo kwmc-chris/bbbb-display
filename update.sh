@@ -3,7 +3,7 @@
 # update.sh - install or update the BirdNET-Pi display (works on a new Pi too)
 #
 # Steps: 1 git pull   2 check files, install missing Python packages
-#        3 sound for birdsong: audio player, headphone socket on, volume
+#        3 sound for birdsong: ffmpeg + aplay, headphone socket on, volume
 #        4 stop the display   5 install rc.local (if changed; old one backed up)
 #        6 database test   7 demo (--once)   8 start the display, show the log
 #
@@ -111,17 +111,20 @@ main() {
     if [ ! -f birdsong.py ]; then
         note "birdsong.py not here - skipped"
     else
-        # An audio player (BirdNET-Pi's ffmpeg usually provides ffplay)
-        if "$VENV_PYTHON" birdsong.py --players | grep -q "none"; then
-            note "No audio player - installing mpg123..."
-            if sudo apt-get install -y -qq mpg123 > /dev/null; then
-                ok "mpg123 installed"
+        # ffmpeg (prepares and levels clips; BirdNET-Pi installs it) and aplay (plays them)
+        for tool in ffmpeg:ffmpeg aplay:alsa-utils; do
+            cmd="${tool%%:*}"; pkg="${tool##*:}"
+            if command -v "$cmd" > /dev/null; then
+                ok "$cmd found"
             else
-                warn "Couldn't install mpg123 - button D won't play sound"
+                note "$cmd missing - installing $pkg..."
+                if sudo apt-get install -y -qq "$pkg" > /dev/null; then
+                    ok "$pkg installed"
+                else
+                    warn "Couldn't install $pkg - button D won't play sound"
+                fi
             fi
-        else
-            ok "Audio player found"
-        fi
+        done
 
         # The Pi's 3.5 mm headphone socket: switched on, volume set
         if grep -q "\[Headphones" "$SOUND_CARDS" 2> /dev/null; then
