@@ -2,7 +2,8 @@
 # =============================================================================
 # update.sh - install the latest BirdNET-Pi display from GitHub
 #
-# Steps: 1 git pull   2 check files   3 stop the display   4 install rc.local
+# Steps: 1 git pull   2 check files (and install missing Python packages)
+#        3 stop the display   4 install rc.local
 #        (if changed; old one backed up in /etc)   5 database test
 #        6 demo (--once)   7 start the display (asks first)
 #
@@ -76,6 +77,16 @@ main() {
     grep -q "cd $DIR " rc.local || fail "rc.local doesn't use this folder ($DIR) - fix rc.local in GitHub, then run this again"
     [ -x "$VENV_PYTHON" ] || fail "Pimoroni Python not found at $VENV_PYTHON"
     ok "$MAIN, rc.local and Pimoroni Python found"
+    # Python packages the scripts need that aren't installed with the Inky library
+    for pkg in qrcode; do
+        if "$VENV_PYTHON" -c "import $pkg" 2> /dev/null; then
+            ok "$pkg package installed"
+        elif "$VENV_PYTHON" -m pip install --quiet "$pkg"; then
+            ok "$pkg package installed (just now)"
+        else
+            warn "Couldn't install $pkg - the display works, but without that feature"
+        fi
+    done
     if [ -f birdfacts.json ]; then
         if "$VENV_PYTHON" -m json.tool birdfacts.json > /dev/null 2> /tmp/birdfacts_error; then
             ok "birdfacts.json is valid"

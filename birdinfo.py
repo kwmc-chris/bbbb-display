@@ -3,6 +3,7 @@
 birdinfo.py - bird information for bbbb-display.py.
 
     get_description(name, sci)  Wikipedia's opening text, cut to N sentences
+    get_source_url(name, sci)   short link to the Wikipedia article (for the QR code)
     get_image(name, sci)        photo (Flickr if BirdNET-Pi has a key, else Wikipedia) + credit
     get_details(name, sci)      browse tile facts: birdfacts.json, else Wikidata
 
@@ -23,7 +24,7 @@ import os
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 FACTS_FILE = os.path.join(SCRIPT_DIR, "birdfacts.json")                   # your tile facts
-DESC_CACHE = os.path.join(SCRIPT_DIR, "birdinfo_descriptions.json")       # saved Wikipedia text
+DESC_CACHE = os.path.join(SCRIPT_DIR, "birdinfo_descriptions.json")       # saved Wikipedia text + link
 WIKIDATA_CACHE = os.path.join(SCRIPT_DIR, "birdinfo_wikidata.json")
 IMAGE_DIR = os.path.join(SCRIPT_DIR, "bird_photos")
 CREDITS_FILE = os.path.join(IMAGE_DIR, "credits.json")
@@ -143,20 +144,35 @@ def wiki_summary(com_name, sci_name=None):
     return None
 
 
+def _article(com_name, sci_name=None, refresh=False):
+    """{"text", "url"} for the bird's article, from the cache or Wikipedia.
+    url is the short form https://en.wikipedia.org/?curid=<page id>."""
+    cache = _load_json(DESC_CACHE)
+    entry = None if refresh else cache.get(com_name)
+    if isinstance(entry, str):               # older cache: text only
+        entry = {"text": entry, "url": None}
+    if not entry or not entry.get("url"):
+        data = wiki_summary(com_name, sci_name)
+        if data and data.get("extract"):
+            url = f"https://{WIKI_LANG}.wikipedia.org/?curid={data['pageid']}" \
+                if data.get("pageid") else None
+            entry = {"text": data["extract"], "url": url}
+            cache[com_name] = entry
+            _save_json(DESC_CACHE, cache)
+    return entry or {}
+
+
 def get_description(com_name, sci_name=None, refresh=False, sentences=1,
                     max_chars=DESCRIPTION_MAX_CHARS):
     """Opening text of the bird's Wikipedia article, cut to `sentences`
     sentences and max_chars. The full paragraph is saved; cutting happens here."""
-    cache = _load_json(DESC_CACHE)
-    text = None if refresh else cache.get(com_name)
-    if not text:
-        data = wiki_summary(com_name, sci_name)
-        text = (data or {}).get("extract")
-        if not text:
-            return None
-        cache[com_name] = text
-        _save_json(DESC_CACHE, cache)
-    return first_sentences(text, sentences, max_chars)
+    text = _article(com_name, sci_name, refresh).get("text")
+    return first_sentences(text, sentences, max_chars) if text else None
+
+
+def get_source_url(com_name, sci_name=None):
+    """Short link to the bird's Wikipedia article, or None."""
+    return _article(com_name, sci_name).get("url")
 
 # =============================================================================
 # 5. PHOTOS  (same sources as BirdNET-Pi: Flickr if keyed, else Wikipedia)
@@ -386,6 +402,7 @@ if __name__ == "__main__":
 
     print("Description:", get_description(com, sci, refresh, sentences=3, max_chars=600)
           or "none found")
+    print("Link (QR code):", get_source_url(com, sci) or "none found")
     details = get_details(com, sci, refresh)
     print("Details:", json.dumps(details, indent=2) if details else "none found")
     if details.get("source") == "wikidata":
