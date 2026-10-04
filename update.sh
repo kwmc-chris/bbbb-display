@@ -1,12 +1,11 @@
 #!/bin/bash
 # =============================================================================
-# update.sh - install the latest BirdNET-Pi display from GitHub
+# update.sh - install or update the BirdNET-Pi display (works on a new Pi too)
 #
-# Steps: 1 git pull   2 check files, install missing Python packages, report the
-#        speaker for birdsong (USB speaker if plugged in, else headphone socket)
-#        3 stop the display   4 install rc.local
-#        (if changed; old one backed up in /etc)   5 database test
-#        6 demo (--once)   7 start the display (asks first)
+# Steps: 1 git pull   2 check files, install missing Python packages
+#        3 sound for birdsong: audio player, headphone socket on, volume
+#        4 stop the display   5 install rc.local (if changed; old one backed up)
+#        6 database test   7 demo (--once)   8 start the display (asks first)
 #
 # Run from this folder, without sudo:
 #   bash update.sh              full update
@@ -20,6 +19,9 @@ MAIN="bbbb-display.py"
 VENV_PYTHON="/home/pi/.virtualenvs/pimoroni/bin/python3"
 RC_TARGET="/etc/rc.local"
 STOP_TIMEOUT=15
+HEADPHONE_VOLUME="100%"          # set at every update; "" = leave the volume alone
+CONFIG_FILES="/boot/firmware/config.txt /boot/config.txt"   # Pi settings file (first found)
+SOUND_CARDS="/proc/asound/cards"
 # Python running the display - this or the old numbered versions
 # (matching "python" leaves e.g. an open "nano bbbb-display.py" alone)
 RUNNING_PATTERN='python3? .*(bbbb-display|birdnet_display[0-9]+)\.py'
@@ -39,7 +41,7 @@ for arg in "$@"; do
         --no-pull)  DO_PULL=0 ;;
         --yes)      START=yes ;;
         --no-start) START=no ;;
-        -h|--help)  sed -n '2,16p' "$0"; exit 0 ;;
+        -h|--help)  sed -n '2,15p' "$0"; exit 0 ;;
         *)          echo "Unknown option: $arg (try --help)"; exit 1 ;;
     esac
 done
@@ -48,6 +50,7 @@ done
 main() {
     cd "$DIR" || fail "Can't open $DIR"
     [ "$(id -u)" -ne 0 ] || fail "Run without sudo:  bash update.sh"
+    REBOOT_NEEDED=0
 
     step "1. Getting the latest files"
     if [ "$DO_PULL" -eq 0 ]; then
@@ -76,7 +79,11 @@ main() {
     # Stop here rather than install a boot file that points elsewhere
     grep -q "$MAIN" rc.local || fail "rc.local doesn't start $MAIN - fix rc.local in GitHub, then run this again"
     grep -q "cd $DIR " rc.local || fail "rc.local doesn't use this folder ($DIR) - fix rc.local in GitHub, then run this again"
-    [ -x "$VENV_PYTHON" ] || fail "Pimoroni Python not found at $VENV_PYTHON"
+    [ -x "$VENV_PYTHON" ] || fail "Pimoroni's Inky software isn't installed ($VENV_PYTHON not found).
+    Install it (answer its questions), reboot, then run this again:
+        git clone https://github.com/pimoroni/inky ~/inky
+        cd ~/inky && ./install.sh
+        sudo reboot"
     ok "$MAIN, rc.local and Pimoroni Python found"
     # Python packages the scripts need that aren't installed with the Inky library
     for pkg in qrcode; do
@@ -88,14 +95,6 @@ main() {
             warn "Couldn't install $pkg - the display works, but without that feature"
         fi
     done
-    # Birdsong (button D): USB speaker if plugged in, else headphone socket
-    if [ -f birdsong.py ]; then
-        if "$VENV_PYTHON" birdsong.py --players | grep -q "none"; then
-            warn "No audio player - button D can't play birdsong (install one: sudo apt install mpg123)"
-        else
-            ok "Birdsong plays through: $("$VENV_PYTHON" birdsong.py --output)"
-        fi
-    fi
     if [ -f birdfacts.json ]; then
         if "$VENV_PYTHON" -m json.tool birdfacts.json > /dev/null 2> /tmp/birdfacts_error; then
             ok "birdfacts.json is valid"
@@ -105,7 +104,56 @@ main() {
         fi
     fi
 
-    step "3. Stopping the display"
+    step "3. Setting up sound (birdsong, button D)"
+    if [ ! -f birdsong.py ]; then
+        note "birdsong.py not here - skipped"
+    else
+        # An audio player (BirdNET-Pi's ffmpeg usually provides ffplay)
+        if "$VENV_PYTHON" birdsong.py --players | grep -q "none"; then
+            note "No audio player - installing mpg123..."
+            if sudo apt-get install -y -qq mpg123 > /dev/null; then
+                ok "mpg123 installed"
+            else
+                warn "Couldn't install mpg123 - button D won't play sound"
+            fi
+        else
+            ok "Audio player found"
+        fi
+
+        # The Pi's 3.5 mm headphone socket: switched on, volume set
+        if grep -q "\[Headphones" "$SOUND_CARDS" 2> /dev/null; then
+            ok "Headphone socket found"
+            if [ -n "$HEADPHONE_VOLUME" ]; then
+                if amixer -q -c Headphones sset PCM "$HEADPHONE_VOLUME" unmute 2> /dev/null; then
+                    sudo alsactl store 2> /dev/null            # keep it after a reboot
+                    ok "Headphone volume set to $HEADPHONE_VOLUME"
+                else
+                    warn "Couldn't set the headphone volume - try: alsamixer"
+                fi
+            fi
+        else
+            config=""
+            for f in $CONFIG_FILES; do [ -f "$f" ] && { config="$f"; break; }; done
+            if [ -z "$config" ]; then
+                warn "Headphone socket not found (no config.txt to switch it on)"
+            elif grep -q "^dtparam=audio=on" "$config"; then
+                warn "Headphone socket not found although it's switched on - this Pi may not have one"
+            else
+                backup="$config.backup-$(date +%Y-%m-%d-%H%M)"
+                sudo cp "$config" "$backup"
+                if grep -q "^dtparam=audio=off" "$config"; then
+                    sudo sed -i 's/^dtparam=audio=off/dtparam=audio=on/' "$config"
+                else
+                    printf '\n[all]\ndtparam=audio=on\n' | sudo tee -a "$config" > /dev/null
+                fi
+                REBOOT_NEEDED=1
+                warn "Headphone socket was off - switched on in $config (old copy: $backup)"
+            fi
+        fi
+        ok "Birdsong plays through: $("$VENV_PYTHON" birdsong.py --output)"
+    fi
+
+    step "4. Stopping the display"
     if pgrep -f "$RUNNING_PATTERN" > /dev/null; then
         sudo pkill -f "$RUNNING_PATTERN"
         for _ in $(seq "$STOP_TIMEOUT"); do
@@ -118,7 +166,7 @@ main() {
         note "Wasn't running"
     fi
 
-    step "4. Installing rc.local"
+    step "5. Installing rc.local"
     if [ -f "$RC_TARGET" ] && cmp -s rc.local "$RC_TARGET"; then
         ok "Already up to date"
     else
@@ -131,14 +179,14 @@ main() {
         ok "Installed"
     fi
 
-    step "5. Testing the database"
+    step "6. Testing the database"
     "$VENV_PYTHON" -u "$MAIN" --check || fail "Database test failed"
 
-    step "6. Demo: drawing the live screen (about 30 seconds)"
+    step "7. Demo: drawing the live screen (about 30 seconds)"
     "$VENV_PYTHON" -u "$MAIN" --once || fail "Drawing the screen failed"
     ok "Check the screen"
 
-    step "7. Starting the display"
+    step "8. Starting the display"
     if [ "$START" = ask ]; then
         read -r -p "  Start it now in the background? [Y/n] " reply
         case "$reply" in [nN]*) START=no ;; *) START=yes ;; esac
@@ -156,7 +204,12 @@ main() {
         note "Not started - it starts at the next boot"
     fi
 
-    echo; echo "Update finished."
+    echo
+    if [ "$REBOOT_NEEDED" -eq 1 ]; then
+        echo "Update finished - reboot to switch on the headphone socket:  sudo reboot"
+    else
+        echo "Update finished."
+    fi
 }
 
 main "$@"

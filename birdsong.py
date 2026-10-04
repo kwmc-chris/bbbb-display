@@ -5,7 +5,9 @@ birdsong.py - plays BirdNET-Pi's recordings for bbbb-display.py (button D).
     find_recording(db, name)   path of a saved recording of that species, or None
     toggle(db, name)           play it, or stop if already playing
     choose_output()            (ALSA device, description): USB speaker if
-                               plugged in, otherwise the headphone socket
+                               plugged in, otherwise the headphone socket.
+                               USB devices with a microphone input (e.g. the
+                               BirdNET-Pi mic adapter) don't count as speakers.
 
 Output is chosen at every press, so a USB speaker plugged in later is used.
 The Pi's default sound device is NOT changed - BirdNET-Pi records through it.
@@ -34,7 +36,7 @@ DEFAULT_EXTRACTED = os.path.expanduser("~/BirdSongs/Extracted")   # if not in Bi
 RECORDING_CHOICE = "best"     # "best" = highest confidence, "latest" = most recent
 RECORDINGS_CHECKED = 50       # recent detections of the species to consider
 
-# "auto" = USB speaker if plugged in, else headphone socket.
+# "auto" = USB speaker (USB output with no mic input) if plugged in, else headphone socket.
 # Or an ALSA device to always use, e.g. "plughw:CARD=Headphones,DEV=0"
 AUDIO_OUTPUT = "auto"
 HEADPHONE_CARD = "Headphones"   # the Pi 4's 3.5 mm socket
@@ -119,7 +121,7 @@ def _read(path):
 
 
 def sound_cards():
-    """[{id, name, usb, playback_devices}] for each sound card."""
+    """[{id, name, usb, playback_devices, capture}] for each sound card."""
     cards = []
     descriptions = {}
     for line in _read(os.path.join(ASOUND_DIR, "cards")).splitlines():
@@ -135,18 +137,20 @@ def sound_cards():
             "name": descriptions.get(number, ""),
             "usb": os.path.exists(os.path.join(card_dir, "usbid")),
             "playback_devices": playback,
+            "capture": bool(glob.glob(os.path.join(card_dir, "pcm*c"))),     # has a mic input
         })
     return cards
 
 
 def choose_output():
-    """(ALSA device, description). USB card that can play sound (so a USB
-    microphone is skipped), else the headphone socket, else the default."""
+    """(ALSA device, description). A USB card that plays sound and has no mic
+    input (so mics and mic adapters are skipped), else the headphone socket,
+    else the default."""
     if AUDIO_OUTPUT != "auto":
         return AUDIO_OUTPUT, "set in AUDIO_OUTPUT"
     cards = sound_cards()
     for card in cards:
-        if card["usb"] and card["playback_devices"]:
+        if card["usb"] and card["playback_devices"] and not card["capture"]:
             device = f"plughw:CARD={card['id']},DEV={card['playback_devices'][0]}"
             return device, f"USB speaker ({card['name'] or card['id']})"
     for card in cards:

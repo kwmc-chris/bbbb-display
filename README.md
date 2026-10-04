@@ -39,6 +39,23 @@ Browse and data return to live after 5 minutes without a press. Hints are set by
 
 **Birdsong** plays through a USB speaker if one is plugged in, otherwise the 3.5 mm headphone socket – checked at every press. The Pi's default sound device isn't changed, as BirdNET-Pi records through it. Only recordings BirdNET-Pi still has on disk can be played (it deletes old ones).
 
+## Setting up a new Pi
+
+1. Install Raspberry Pi OS and [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi), and check BirdNET-Pi is detecting birds.
+2. Install Pimoroni's Inky software (answer its questions), then reboot:
+   ```
+   git clone https://github.com/pimoroni/inky ~/inky
+   cd ~/inky && ./install.sh
+   sudo reboot
+   ```
+3. Download this project and run the installer:
+   ```
+   cd /home/pi
+   git clone https://github.com/kwmc-chris/bbbb-display.git
+   cd bbbb-display && bash update.sh
+   ```
+   It installs the `qrcode` package and an audio player if needed, switches on the headphone socket and sets its volume, and sets the display to start at boot. If it says a reboot is needed, run `sudo reboot`.
+
 ## Updating
 
 1. **Mac:** put the changed files in the repository folder → GitHub Desktop → **Commit** → **Push**.
@@ -47,7 +64,9 @@ Browse and data return to live after 5 minutes without a press. Hints are set by
    cd /home/pi/bbbb-display
    bash update.sh
    ```
-   It pulls from GitHub, checks the files, stops the display, installs `rc.local` if changed (old one backed up in `/etc`), tests the database, draws the live screen once, then asks whether to start the display. Run without `sudo`.
+   Steps: (1) pull from GitHub, (2) check files and Python packages, (3) set up sound, (4) stop the display, (5) install `rc.local` if changed (old one backed up in `/etc`), (6) test the database, (7) draw the live screen once, (8) ask whether to start the display. Run without `sudo`.
+
+`HEADPHONE_VOLUME` at the top of `update.sh` sets the headphone volume at each update (`""` to leave it alone).
 
 Edit `birdfacts.json` on the Mac, not the Pi – a file changed on the Pi makes `git pull` stop.
 
@@ -100,5 +119,5 @@ Copy an existing line and change it. The key is the scientific name exactly as B
 | Buttons do nothing | Stop the display, then `python3 birdbrowser.py --test-buttons` |
 | No photo or description | `python3 birdinfo.py "Name" "Scientific name" --refresh` |
 | No QR codes | Needs the `qrcode` package – `update.sh` installs it; check its step 2 |
-| No birdsong | `python3 birdsong.py "Name"` shows what fails. No player: `sudo apt install mpg123`. Too quiet: `alsamixer` (F6 to pick the card) |
+| No birdsong | `python3 birdsong.py --output` shows the speaker; `python3 birdsong.py "Name"` plays one. Test the socket: `speaker-test -D plughw:CARD=Headphones,DEV=0 -c 2 -t wav -l 1` |
 | `git pull` stops: "local changes" | A file was edited on the Pi. `git status` shows which; `git checkout -- FILE` discards the Pi's edit |
