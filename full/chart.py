@@ -1,33 +1,25 @@
-#!/usr/bin/env python3
-"""
-birdchart.py - today's species-by-hour chart for bbbb-display.py (button C).
+"""Today's chart for the full display: birds down the side (busiest first),
+hours across the top (the current hour in red), and a coloured square with
+the number of detections in each hour.
 
-    make_chart(size, db, style)   "drawn": drawn for the e-ink (default)
-                                  "birdnet": BirdNET-Pi's own chart image, shrunk
-
-Species down the side (busiest first), hours across the top (current hour in
-red), coloured squares with the count per hour.
-
-Test:  python3 birdchart.py --preview chart.png [--date YYYY-MM-DD] [--style birdnet]
-
-Sections: 1 Settings, 2 Imports, 3 Data, 4 Drawn chart, 5 BirdNET-Pi image,
-          6 make_chart, 7 Test
+CHART_STYLE "birdnet" (in display.py) shows BirdNET-Pi's own chart picture instead.
 """
 
-# =============================================================================
-# 1. SETTINGS
-# =============================================================================
-
+import glob
 import os
+from datetime import datetime
 
-BIRDNET_CHART_DIR = os.path.expanduser("~/BirdSongs/Extracted/Charts")   # BirdNET-Pi's chart images
+from PIL import Image, ImageDraw, ImageOps
+
+from common import birdnet, screen
+
+BIRDNET_CHARTS = os.path.expanduser("~/BirdSongs/Extracted/Charts")   # BirdNET-Pi's chart pictures
 
 COLOURS = {
     "black": (0, 0, 0), "white": (255, 255, 255), "red": (255, 0, 0),
     "yellow": (255, 255, 0), "green": (0, 255, 0), "blue": (0, 0, 255),
 }
-
-# (lowest, highest or None = and above, square colour, number colour) - also the legend
+# (lowest, highest or None = and above, square colour, number colour) - also the key
 COUNT_COLOURS = [
     (1, 2, COLOURS["yellow"], COLOURS["black"]),
     (3, 9, COLOURS["green"], COLOURS["black"]),
@@ -41,32 +33,17 @@ TOTAL_COLUMN_WIDTH = 30          # "All" column
 ROW_HEIGHT = 21
 MIN_HOURS_SHOWN = 12
 
-CHART_FONTS = {
+FONTS = {
     "title": ("DejaVuSans-Bold.ttf", 18),
     "name": ("DejaVuSans.ttf", 12),
     "total": ("DejaVuSans-Bold.ttf", 12),
     "cell": ("DejaVuSans-Bold.ttf", 11),
     "small": ("DejaVuSans.ttf", 11),
 }
-FONT_DIR = "/usr/share/fonts/truetype/dejavu/"
-
-# =============================================================================
-# 2. IMPORTS AND HELPERS
-# =============================================================================
-
-import glob
-import sqlite3
-from datetime import datetime
-
-from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
 def _font(key):
-    name, size = CHART_FONTS[key]
-    try:
-        return ImageFont.truetype(FONT_DIR + name, size)
-    except OSError:
-        return ImageFont.load_default(size=size)
+    return screen.font(*FONTS[key])
 
 
 def _fit_text(d, text, fnt, max_width):
@@ -88,27 +65,14 @@ def _count_colours(n):
 def _today():
     return datetime.now().strftime("%Y-%m-%d")
 
-# =============================================================================
-# 3. DATA
-# =============================================================================
-
-def daily_counts(db_path, date):
-    """{species: {hour: count}} for one date."""
-    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10)
-    try:
-        rows = con.execute(
-            "SELECT Com_Name, CAST(substr(Time, 1, 2) AS INTEGER), COUNT(*) "
-            "FROM detections WHERE Date = ? GROUP BY Com_Name, 2", (date,)).fetchall()
-    finally:
-        con.close()
+def daily_counts(date):
+    """{bird: {hour: count}} for one date."""
+    rows = birdnet.query("SELECT Com_Name, CAST(substr(Time, 1, 2) AS INTEGER), COUNT(*) "
+                         "FROM detections WHERE Date = ? GROUP BY Com_Name, 2", date)
     counts = {}
     for name, hour, n in rows:
         counts.setdefault(name, {})[hour] = n
     return counts
-
-# =============================================================================
-# 4. DRAWN CHART
-# =============================================================================
 
 def _hours_to_show(counts, now_hour):
     """First active hour to last (or now), widened to MIN_HOURS_SHOWN."""
@@ -124,7 +88,7 @@ def _hours_to_show(counts, now_hour):
     return list(range(start, end + 1))
 
 
-def render_chart(size, date, counts, rotate=0):
+def render_chart(size, date, counts):
     width, height = size
     m = CHART_MARGIN
     canvas = Image.new("RGB", size, COLOURS["white"])
@@ -145,7 +109,7 @@ def render_chart(size, date, counts, rotate=0):
 
     if not counts:
         d.text((m, m + 60), "No detections yet today.", font=_font("title"), fill=COLOURS["black"])
-        return canvas.rotate(rotate) if rotate else canvas
+        return canvas
 
     # Grid layout
     hours = _hours_to_show(counts, now_hour)
@@ -212,56 +176,19 @@ def render_chart(size, date, counts, rotate=0):
         label = f"{low}+" if high is None else f"{low}–{high}"
         d.text((x, ly), label, font=_font("small"), fill=COLOURS["black"])
         x += d.textlength(label, font=_font("small")) + 12
-    # (button hints are drawn bottom right by bbbb-display.py)
-
-    if rotate:
-        canvas = canvas.rotate(rotate)
+    # (button hints are drawn bottom right by display.py)
     return canvas
 
-# =============================================================================
-# 5. BIRDNET-PI'S OWN CHART IMAGE
-# =============================================================================
-
-def find_birdnet_chart(date):
-    for pattern in (f"Combo-{date}.png", f"*{date}*.png"):
-        matches = sorted(glob.glob(os.path.join(BIRDNET_CHART_DIR, pattern)))
-        if matches:
-            return matches[0]
-    return None
-
-
-def render_birdnet_image(size, path, rotate=0):
-    """Shrink to fit, nothing cropped."""
-    canvas = Image.new("RGB", size, COLOURS["white"])
-    img = ImageOps.contain(Image.open(path).convert("RGB"), size, method=Image.LANCZOS)
-    canvas.paste(img, ((size[0] - img.width) // 2, (size[1] - img.height) // 2))
-    return canvas.rotate(rotate) if rotate else canvas
-
-# =============================================================================
-# 6. make_chart
-# =============================================================================
-
-def make_chart(size, db_path, style="drawn", rotate=0, date=None):
-    """Chart image. "birdnet" falls back to drawn if there's no image for today."""
+def make_chart(size, style="drawn", date=None):
+    """Today's chart. "birdnet" style falls back to drawn if there's no picture for today."""
     date = date or _today()
     if style == "birdnet":
-        path = find_birdnet_chart(date)
-        if path:
-            return render_birdnet_image(size, path, rotate)
-        print(f"No BirdNET-Pi chart image found in {BIRDNET_CHART_DIR} - drawing one instead.")
-    return render_chart(size, date, daily_counts(db_path, date), rotate=rotate)
-
-# =============================================================================
-# 7. TEST
-# =============================================================================
-
-if __name__ == "__main__":
-    import argparse
-    p = argparse.ArgumentParser(description="Save a picture of the daily chart")
-    p.add_argument("--db", default=os.path.expanduser("~/BirdNET-Pi/scripts/birds.db"))
-    p.add_argument("--date", help="YYYY-MM-DD (default: today)")
-    p.add_argument("--style", choices=["drawn", "birdnet"], default="drawn")
-    p.add_argument("--preview", default="chart.png")
-    a = p.parse_args()
-    make_chart((600, 400), a.db, a.style, date=a.date).save(a.preview)
-    print(f"Saved {a.preview}")
+        found = (glob.glob(os.path.join(BIRDNET_CHARTS, f"Combo-{date}.png"))
+                 or sorted(glob.glob(os.path.join(BIRDNET_CHARTS, f"*{date}*.png"))))
+        if found:
+            canvas = Image.new("RGB", size, COLOURS["white"])
+            img = ImageOps.contain(Image.open(found[0]).convert("RGB"), size, method=Image.LANCZOS)
+            canvas.paste(img, ((size[0] - img.width) // 2, (size[1] - img.height) // 2))
+            return canvas
+        print(f"No BirdNET-Pi chart picture in {BIRDNET_CHARTS} - drawing one instead.")
+    return render_chart(size, date, daily_counts(date))

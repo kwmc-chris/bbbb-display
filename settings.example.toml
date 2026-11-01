@@ -1,0 +1,43 @@
+# Settings for this Pi.
+# install.sh copies this file to settings.toml, which stays on the Pi and is
+# never changed by updates. After editing settings.toml:
+#     sudo systemctl restart bbbb-display
+
+display = "simple"            # "full" or "simple"
+nightly_update = true       # get the latest version from GitHub every night at 3am
+debug = true               # true: redraw as fast as possible for testing - checks every
+                            # second and doesn't wait for the screen to finish a refresh
+
+
+[full]
+rotate = 0                  # 0, or 180 if the screen is mounted upside down
+# show_qr = false           # no QR codes on the browse pages
+# min_refresh_seconds = 180 # shortest gap between redraws
+
+[simple]
+rotate = 90                 # 90 or 270, depending which way up the screen is mounted
+autoplay_song = false       # play each new bird's song (needs a speaker)
+# box_opacity = 0.85        # boxes behind the text: lower shows more photo
+
+
+[sound]
+speaker = "none"            # "auto" (USB speaker if plugged in, else headphone socket),
+                            # "headphones", or "none" for no sound
+
+
+[buttons]
+enabled = true
+# GPIO (BCM) pin for each job. Leave a job out to not use it.
+# The Inky's own buttons: A = 5, B = 6, C = 16 (25 on the 13.3"), D = 24.
+# Check them with:  .venv/bin/python start.py --test-buttons
+# Your own buttons go between a free pin (e.g. 4, 12, 13, 26) and ground.
+# Don't use 2, 3, 8, 9, 10, 11, 17, 22 or 27 - the screen needs them.
+# The simple display only uses "song" (and the shutdown buttons).
+pins = { browse = 5, live = 6, chart = 16, song = 24 }
+shutdown = ["browse", "song"]    # hold these two together for 3 seconds to shut down
+
+
+# Any other setting at the top of these files can be changed here too, in
+# lower case: full/display.py [full], full/browse.py [browse], full/chart.py
+# [chart], simple/display.py [simple], simple/poems.py [poems],
+# common/buttons.py [buttons], common/birdsong.py [sound], common/birdnet.py [birdnet]

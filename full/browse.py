@@ -1,56 +1,39 @@
-#!/usr/bin/env python3
-"""
-birdbrowser.py - buttons and BROWSE pages for bbbb-display.py.
+"""Browse pages for the full display: one page per bird, most recent first.
 
-    Buttons()                       read buttons A/B/C/D
-    recent_species(db)              species to browse, most recent first
-    species_times(db, name, date)   times a species was heard
-    render_page(...)                draw one browse page
+Photo top left; names, order, family and when it was heard top right; five
+tiles (habitat, food, nesting, behaviour, UK status) with a description below,
+and a QR code linking to its Wikipedia article. Birds not in birdfacts.json get
+a longer description and one conservation tile instead.
 
-Page: photo top left; names, order/family, times heard and the page counter
-top right; five tiles (habitat, food, nesting, behaviour, UK status) with a
-description below, and a QR code (made by birdqr.py) linking to the Wikipedia article. Birds not in birdfacts.json get a longer description and one global
-conservation tile instead.
-
-Tile icons are drawn by code, unless you put a PNG in the icons folder
-(e.g. icons/trees.png) - see section 5.
-
-Test:
-    python3 birdbrowser.py --test-buttons          print each button pressed
-    python3 birdbrowser.py --icon-sheet icons.png  all icons on their tiles
-
-Sections: 1 Settings, 2 Imports, 3 Buttons, 4 Data, 5 Icons, 6 Tiles,
-          7 Page, 8 Test
+Tile icons are drawn here, unless you put your own PNG in full/icons/
+(e.g. icons/trees.png: dark shapes on white or transparent, square).
+Check them all with:  .venv/bin/python -c "from full import browse; browse.icon_sheet('icons.png')"
 """
 
-# =============================================================================
-# 1. SETTINGS
-# =============================================================================
-
+import math
 import os
+import re
+from datetime import datetime
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+from PIL import Image, ImageDraw, ImageOps
 
-# Buttons (BCM pin numbers on the Inky Impression 4"; C is 25 on the 13.3")
-BUTTON_PINS = {"A": 5, "B": 6, "C": 16, "D": 24}
-DEBOUNCE_SECONDS = 0.3            # ignore repeat presses of one button within this
-EXTRA_PRESS_WAIT_SECONDS = 0.6    # wait to catch quick multiple presses
+from common import birdnet, screen
 
-# Content
-RECENT_SPECIES_LIMIT = 30         # species in the browse list
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+RECENT_SPECIES_LIMIT = 30         # birds in the browse list
 TIMES_SHOWN = 10                  # detection times listed
-DESCRIPTION_LINES = 4             # description under the tiles (fewer if no room or hints shown)
+DESCRIPTION_LINES = 4             # description under the tiles (fewer if there's no room)
 FALLBACK_DESCRIPTION_LINES = 5    # description for birds not in birdfacts.json
-
+QR_SIZES = (3, 2)                 # pixels per QR square, biggest that fits is used
 QR_GAP = 12                       # space between description and QR code
 
-# Layout (pixels)
 PAGE_MARGIN = 14
 PHOTO_SIZE = (170, 140)
 TILE_SIZE = 62
 ICON_PADDING = 9                  # tile edge to icon
 
-PAGE_FONTS = {                    # (font file, size)
+FONTS = {
     "name": ("DejaVuSans-Bold.ttf", 26),
     "sci": ("DejaVuSans-Oblique.ttf", 17),
     "body": ("DejaVuSans.ttf", 14),
@@ -62,7 +45,6 @@ PAGE_FONTS = {                    # (font file, size)
     "code": ("DejaVuSans-Bold.ttf", 22),        # "LC", "RED"
     "code_small": ("DejaVuSans-Bold.ttf", 13),  # "AMBER", "GREEN"
 }
-FONT_DIR = "/usr/share/fonts/truetype/dejavu/"
 
 COLOURS = {                       # the screen's six inks
     "black": (0, 0, 0), "white": (255, 255, 255), "red": (255, 0, 0),
@@ -72,60 +54,24 @@ TILE_COLOURS = {
     "habitat": (0, 0, 255),
     "food": (0, 255, 0),
     "nesting": (255, 255, 0),
-    "behavior": (255, 128, 0),    # orange: dithered (no orange ink)
+    "behavior": (255, 128, 0),    # orange: speckled, as there's no orange ink
 }
-ICON_COLOURS = {                  # black on yellow, where white is too faint
+ICON_COLOURS = {                  # black on yellow, where white would be too faint
     "habitat": COLOURS["white"], "food": COLOURS["white"],
     "nesting": COLOURS["black"], "behavior": COLOURS["white"],
 }
-
-# Your own icons: PNG named after the icon (e.g. trees.png), square (ideally
-# 400x400), dark shapes on transparent or white. Missing ones are drawn.
-ICON_DIR = os.path.join(SCRIPT_DIR, "icons")
-ICON_MIN_OPACITY = 128            # a pixel is part of the icon if at least this opaque
+ICON_DIR = os.path.join(HERE, "icons")
+ICON_MIN_OPACITY = 128            # a pixel of your icon counts if at least this opaque
 ICON_MAX_BRIGHTNESS = 128         # ...and at most this bright (0-255)
-
-# =============================================================================
-# 2. IMPORTS AND HELPERS
-# =============================================================================
-
-import math
-import queue
-import re
-import sqlite3
-import time
-from datetime import datetime
-
-from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
 def _font(key):
-    name, size = PAGE_FONTS[key]
-    try:
-        return ImageFont.truetype(FONT_DIR + name, size)
-    except OSError:
-        return ImageFont.load_default(size=size)
-
-
-def _wrap(draw, text, fnt, max_width):
-    """Split text into lines no wider than max_width."""
-    words, lines, line = text.split(), [], ""
-    for word in words:
-        test = f"{line} {word}".strip()
-        if draw.textlength(test, font=fnt) <= max_width:
-            line = test
-        else:
-            if line:
-                lines.append(line)
-            line = word
-    if line:
-        lines.append(line)
-    return lines
+    return screen.font(*FONTS[key])
 
 
 def _wrap_limit(draw, text, fnt, max_width, max_lines):
-    """Up to max_lines lines; adds "…" if text was cut off."""
-    lines = _wrap(draw, text, fnt, max_width)
+    """Up to max_lines lines; ends with "…" if the text was cut."""
+    lines = screen.wrap(draw, text, fnt, max_width)
     if len(lines) <= max_lines or max_lines <= 0:
         return lines[:max(max_lines, 0)]
     last = lines[max_lines - 1]
@@ -139,165 +85,62 @@ def _centred(draw, text, fnt, centre_x, y, fill):
     draw.text((centre_x - w / 2, y), text, font=fnt, fill=fill)
 
 
-def place_qr(canvas, qr_images, right, top, max_bottom):
+# --- Data ---
+
+def recent_species():
+    """[{Com_Name, Sci_Name, last_heard, total}], most recently heard first."""
+    return [dict(r) for r in birdnet.query(
+        "SELECT Com_Name, Sci_Name, MAX(Date || ' ' || Time) AS last_heard, COUNT(*) AS total "
+        "FROM detections GROUP BY Com_Name ORDER BY last_heard DESC LIMIT ?",
+        RECENT_SPECIES_LIMIT)]
+
+
+def one_species(com_name):
+    """Like a recent_species() row for one bird, or None if it's never been heard."""
+    rows = birdnet.query(
+        "SELECT Com_Name, Sci_Name, MAX(Date || ' ' || Time) AS last_heard, COUNT(*) AS total "
+        "FROM detections WHERE Com_Name = ? GROUP BY Com_Name", com_name)
+    return dict(rows[0]) if rows else None
+
+
+def times_heard(com_name, date):
+    """["HH:MM", ...] for one bird on one date, earliest first."""
+    return [r[0][:5] for r in birdnet.query(
+        "SELECT Time FROM detections WHERE Com_Name = ? AND Date = ? ORDER BY Time", com_name, date)]
+
+
+# --- QR code ---
+
+def qr_images(text):
+    """The QR code as pictures, one per size in QR_SIZES ([] if qrcode isn't installed)."""
+    try:
+        import qrcode
+    except ImportError:
+        return []                 # install.sh installs it
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=0)
+    qr.add_data(text)
+    qr.make(fit=True)
+    matrix = qr.get_matrix()
+    n = len(matrix)
+    small = Image.new("1", (n, n), 1)
+    small.putdata([0 if dark else 1 for row in matrix for dark in row])
+    return [small.resize((n * s, n * s), Image.NEAREST).convert("RGB") for s in QR_SIZES]
+
+
+def place_qr(canvas, images, right, top, max_bottom):
     """Paste the largest QR picture that fits, top-right corner at (right, top).
-    Returns its width (0 if none fits or there are none)."""
-    for img in qr_images or []:
+    Returns its width (0 if none fits)."""
+    for img in images or []:
         if top + img.height <= max_bottom:
             canvas.paste(img, (right - img.width, top))
             return img.width
     return 0
 
 
-# =============================================================================
-# 3. BUTTONS  (pressed = pin pulled low; uses gpiod, or RPi.GPIO if missing)
-# =============================================================================
-
-class Buttons:
-    """presses = Buttons().wait(30)  ->  e.g. ["D", "D"], or [] after 30 s
-    held({"A", "D"}, 3)            ->  True if those buttons stay down for 3 s"""
-
-    def __init__(self):
-        self._last_press = {}
-        try:
-            self._setup_gpiod()
-            self.backend = "gpiod"
-        except Exception as gpiod_error:
-            try:
-                self._setup_rpigpio()
-                self.backend = "RPi.GPIO"
-            except Exception as rpi_error:
-                raise RuntimeError(f"gpiod: {gpiod_error}; RPi.GPIO: {rpi_error}")
-
-    def _setup_gpiod(self):
-        import gpiod
-        import gpiodevice
-        from gpiod.line import Bias, Direction, Edge, Value
-        self._down_value = Value.INACTIVE       # pulled low = pressed
-
-        settings = gpiod.LineSettings(direction=Direction.INPUT, bias=Bias.PULL_UP,
-                                      edge_detection=Edge.FALLING)
-        chip = gpiodevice.find_chip_by_platform()
-        self._offsets = {chip.line_offset_from_id(pin): label
-                         for label, pin in BUTTON_PINS.items()}
-        self._request = chip.request_lines(
-            consumer="birdnet-display-buttons",
-            config=dict.fromkeys(self._offsets.keys(), settings))
-
-    def _setup_rpigpio(self):
-        import RPi.GPIO as GPIO
-        self._gpio = GPIO
-        self._queue = queue.Queue()
-        GPIO.setmode(GPIO.BCM)
-        for label, pin in BUTTON_PINS.items():
-            GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            GPIO.add_event_detect(pin, GPIO.FALLING, bouncetime=250,
-                                  callback=lambda channel, l=label: self._queue.put(l))
-
-    def _accept(self, label):
-        """Debounce."""
-        now = time.monotonic()
-        if now - self._last_press.get(label, 0) < DEBOUNCE_SECONDS:
-            return False
-        self._last_press[label] = now
-        return True
-
-    def wait(self, timeout):
-        """Wait up to timeout seconds; returns presses (including ones made
-        while the screen was refreshing)."""
-        presses = []
-        if self.backend == "gpiod":
-            if self._request.wait_edge_events(timeout):
-                time.sleep(EXTRA_PRESS_WAIT_SECONDS)
-                for event in self._request.read_edge_events():
-                    label = self._offsets.get(event.line_offset)
-                    if label and self._accept(label):
-                        presses.append(label)
-        else:
-            try:
-                presses.append(self._queue.get(timeout=timeout))
-                time.sleep(EXTRA_PRESS_WAIT_SECONDS)
-                while True:
-                    presses.append(self._queue.get_nowait())
-            except queue.Empty:
-                pass
-        return presses
-
-    def pressed_now(self):
-        """Set of buttons being held down right now, e.g. {"A", "D"}."""
-        if self.backend == "gpiod":
-            values = self._request.get_values()
-            return {self._offsets[o] for o, v in zip(self._request.offsets, values)
-                    if v == self._down_value}
-        return {label for label, pin in BUTTON_PINS.items()
-                if self._gpio.input(pin) == self._gpio.LOW}
-
-    def held(self, labels, seconds, join_seconds=1.0):
-        """True if all `labels` are down together (allowing join_seconds for
-        the second one to be pressed) and stay down for `seconds`.
-        Returns False quickly when they're released (a normal press)."""
-        labels = set(labels)
-        start = time.monotonic()
-        while not labels <= self.pressed_now():
-            if not (labels & self.pressed_now()) or time.monotonic() - start > join_seconds:
-                return False
-            time.sleep(0.05)
-        start = time.monotonic()
-        while time.monotonic() - start < seconds:
-            if not labels <= self.pressed_now():
-                return False
-            time.sleep(0.05)
-        return True
-
-    def clear(self):
-        """Discard waiting presses."""
-        if self.backend == "gpiod":
-            while self._request.wait_edge_events(0):
-                self._request.read_edge_events()
-        else:
-            while not self._queue.empty():
-                self._queue.get_nowait()
-
-# =============================================================================
-# 4. DATA  (BirdNET-Pi's database, read-only)
-# =============================================================================
-
-def _connect(db_path):
-    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10)
-    con.row_factory = sqlite3.Row
-    return con
-
-
-def recent_species(db_path, limit=RECENT_SPECIES_LIMIT):
-    """[{Com_Name, Sci_Name, last_heard, total}], most recent first."""
-    con = _connect(db_path)
-    try:
-        return [dict(r) for r in con.execute(
-            "SELECT Com_Name, Sci_Name, MAX(Date || ' ' || Time) AS last_heard, "
-            "COUNT(*) AS total FROM detections "
-            "GROUP BY Com_Name ORDER BY last_heard DESC LIMIT ?", (limit,))]
-    finally:
-        con.close()
-
-
-def species_times(db_path, com_name, date):
-    """["HH:MM", ...] for one species on one date, earliest first."""
-    con = _connect(db_path)
-    try:
-        return [r[0][:5] for r in con.execute(
-            "SELECT Time FROM detections WHERE Com_Name = ? AND Date = ? ORDER BY Time",
-            (com_name, date))]
-    finally:
-        con.close()
-
-# =============================================================================
-# 5. ICONS
-#    Each icon = drawing commands on a 100x100 grid ((0,0) top left).
-#    fill=255 draws, fill=0 cuts a hole. Drawn at 400x400, shrunk, then made
-#    pure on/off so edges stay crisp. The result is a stencil the tile colours in.
-#    A PNG in ICON_DIR with the icon's name replaces the drawn version.
-#    Check with:  python3 birdbrowser.py --icon-sheet icons.png
-# =============================================================================
+# --- Icons ---
+# Each icon is drawing commands on a 100x100 grid ((0,0) top left). fill=255
+# draws, fill=0 cuts a hole. Drawn at 400x400, shrunk, then made pure on/off so
+# the edges stay crisp. A PNG in ICON_DIR with the icon's name replaces it.
 
 def _bird(d, x, y, s=1.0, fill=255):
     """Perched bird facing right; (x, y) = body centre, s = scale."""
@@ -525,9 +368,7 @@ def make_icon(category, value, size):
     name = choose_icon(category, value)
     return load_custom_icon(name, size) or draw_icon(name, size)
 
-# =============================================================================
-# 6. TILES
-# =============================================================================
+# --- Tiles ---
 
 IUCN_CODES = [("critically", "CR"), ("endangered", "EN"), ("vulnerable", "VU"),
               ("near threatened", "NT"), ("least", "LC"), ("data deficient", "DD")]
@@ -582,14 +423,12 @@ def draw_tile(canvas, d, centre_x, top, bg, label, value_lines,
         y += 17
     return y
 
-# =============================================================================
-# 7. PAGE  (y = current text height)
-# =============================================================================
+# --- Page (y = how far down the text has got) ---
 
 def render_page(size, sp, times_today, details, image_path, credit, index, count,
-                description=None, qr_images=None, reserve_bottom=0, rotate=0):
-    """One browse page. sp = a recent_species() row; details = get_details();
-    image_path None = no photo; qr_images = from birdqr.qr_images(), or None;
+                description=None, qr=None, reserve_bottom=0):
+    """One browse page. sp = a recent_species() row; details = info.details();
+    image_path None = no photo; qr = qr_images() or None;
     reserve_bottom = pixels kept free at the bottom left (button hints)."""
     width, height = size
     m = PAGE_MARGIN
@@ -598,14 +437,15 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
     d.fontmode = "1"
 
     # --- Photo and credit (top left) ---
-    pw, ph = PHOTO_SIZE
+    k = min(width / 600, height / 400)        # bigger photo on bigger screens
+    pw, ph = int(PHOTO_SIZE[0] * k), int(PHOTO_SIZE[1] * k)
     x_text = m
     if image_path:
         try:
             img = ImageOps.exif_transpose(Image.open(image_path)).convert("RGB")
             canvas.paste(ImageOps.fit(img, (pw, ph), method=Image.LANCZOS), (m, m))
             if credit:
-                for i, line in enumerate(_wrap(d, credit, _font("tiny"), pw)[:2]):
+                for i, line in enumerate(screen.wrap(d, credit, _font("tiny"), pw)[:2]):
                     d.text((m, m + ph + 3 + i * 12), line, font=_font("tiny"),
                            fill=COLOURS["black"])
             x_text = m + pw + 18
@@ -615,7 +455,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
     # --- Names, order, family (top right) ---
     max_w = width - x_text - m
     y = m
-    for line in _wrap(d, sp["Com_Name"], _font("name"), max_w)[:2]:
+    for line in screen.wrap(d, sp["Com_Name"], _font("name"), max_w)[:2]:
         d.text((x_text, y), line, font=_font("name"), fill=COLOURS["black"])
         y += 31
     d.text((x_text, y), sp["Sci_Name"], font=_font("sci"), fill=COLOURS["black"])
@@ -656,15 +496,15 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
     d.text((width - m - nav_w, y), nav, font=_font("small"), fill=COLOURS["black"])
     y += 18
 
-    if times_today and y < 180:               # room above the tiles
+    if times_today and y < 180 * k:           # room above the tiles
         recent = times_today[-TIMES_SHOWN:]
         label = "Recent: " if len(times_today) > TIMES_SHOWN else "Times: "
-        d.text((x_text, y), _wrap(d, label + "  ".join(recent), _font("small"), max_w)[0],
+        d.text((x_text, y), screen.wrap(d, label + "  ".join(recent), _font("small"), max_w)[0],
                font=_font("small"), fill=COLOURS["black"])
         y += 18
 
     # --- Tiles: 5 equal columns, below the photo and text ---
-    tile_top = max(m + ph + 30, min(y + 10, 232))
+    tile_top = max(m + ph + 30, min(y + 10, int(232 * k)))
     col_w = (width - 2 * m) / 5
 
     def column_centre(i):
@@ -682,7 +522,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                 continue
             bottom = max(bottom, draw_tile(
                 canvas, d, column_centre(i), tile_top, TILE_COLOURS[key], label,
-                _wrap(d, value, _font("tile_value"), col_w - 4),
+                screen.wrap(d, value, _font("tile_value"), col_w - 4),
                 glyph=make_icon(key, value, 64), glyph_colour=ICON_COLOURS[key]))
         code, bg, fg, words = uk_status_tile(details.get("uk_status"))
         status_bottom = draw_tile(
@@ -692,7 +532,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
         bottom = max(bottom, status_bottom)
 
         # QR code under the status tile (right); description fills the rest
-        qr_w = place_qr(canvas, qr_images, width - m, status_bottom + 8, qr_bottom)
+        qr_w = place_qr(canvas, qr, width - m, status_bottom + 8, qr_bottom)
         text_w = width - 2 * m - (qr_w + QR_GAP if qr_w else 0)
         if description:
             ty = bottom + 6
@@ -708,9 +548,9 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
             code, bg, fg = iucn_tile(details["conservation"])
             right_bottom = draw_tile(
                 canvas, d, column_centre(4), tile_top, bg, "Conservation",
-                _wrap(d, details["conservation"], _font("tile_value"), col_w - 4),
+                screen.wrap(d, details["conservation"], _font("tile_value"), col_w - 4),
                 code=code, code_colour=fg, code_font=_font("code")) + 8
-        place_qr(canvas, qr_images, width - m, right_bottom, qr_bottom)
+        place_qr(canvas, qr, width - m, right_bottom, qr_bottom)
         ty = tile_top
         if description:
             room = (height - m - reserve_bottom - ty - 26) // 19     # leave room for the note
@@ -721,13 +561,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
         d.text((m, ty + 6), "Add this bird to birdfacts.json for more details.",
                font=_font("small"), fill=COLOURS["blue"])
 
-    if rotate:
-        canvas = canvas.rotate(rotate)
     return canvas
-
-# =============================================================================
-# 8. TEST
-# =============================================================================
 
 def icon_sheet(path):
     """Save all icons on their tiles, marked "file" (yours) or "drawn"."""
@@ -757,18 +591,3 @@ def icon_sheet(path):
                  COLOURS["red"] if own else COLOURS["blue"])
     sheet.save(path)
     print(f"Saved {path} - {len(names)} icons, {used_files} from {ICON_DIR}")
-
-
-if __name__ == "__main__":
-    import sys
-    if "--icon-sheet" in sys.argv:
-        i = sys.argv.index("--icon-sheet")
-        icon_sheet(sys.argv[i + 1] if i + 1 < len(sys.argv) else "icons.png")
-    elif "--test-buttons" in sys.argv:
-        buttons = Buttons()
-        print(f"Using {buttons.backend}. Press A, B, C or D (Ctrl+C to stop)...")
-        while True:
-            for p in buttons.wait(1):
-                print("Pressed", p)
-    else:
-        print(__doc__)
