@@ -3,9 +3,9 @@
 # never changed by updates. After editing settings.toml:
 #     sudo systemctl restart bbbb-display
 
-display = "simple"            # "full" or "simple"
+display = "full"            # "full" or "simple"
 nightly_update = true       # get the latest version from GitHub every night at 3am
-debug = true               # true: redraw as fast as possible for testing - checks every
+debug = false               # true: redraw as fast as possible for testing - checks every
                             # second and doesn't wait for the screen to finish a refresh
 
 
@@ -17,12 +17,12 @@ rotate = 0                  # 0, or 180 if the screen is mounted upside down
 [simple]
 rotate = 90                 # 90 or 270, depending which way up the screen is mounted
 autoplay_song = false       # play each new bird's song (needs a speaker)
-# box_opacity = 0.85        # boxes behind the text: lower shows more photo
 
 
 [sound]
-speaker = "none"            # "auto" (USB speaker if plugged in, else headphone socket),
+speaker = "auto"            # "auto" (USB speaker if plugged in, else headphone socket),
                             # "headphones", or "none" for no sound
+                            # Check it with:  .venv/bin/python start.py --test-sound
 
 
 [buttons]

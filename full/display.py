@@ -8,7 +8,7 @@ Button jobs (pins are set in settings.toml):
     browse   first press: the most recent bird, then each press goes one further back
     live     back to the live screen (it also goes back by itself after a while)
     chart    today's chart
-    song     play or stop the song of the bird on a browse page (needs a speaker)
+    song     play or stop the song of the bird on screen (live or browse; needs a speaker)
     hold the SHUTDOWN buttons to show "Sleeping since..." and shut down
 """
 
@@ -51,7 +51,7 @@ FONTS = {
     "hint": ("DejaVuSans.ttf", 13),
 }
 HINTS = {                       # (button job, label) shown on each screen
-    "live": [("browse", "browse"), ("chart", "data")],
+    "live": [("browse", "browse"), ("chart", "data"), ("song", "birdsong")],
     "browse": [("browse", "next"), ("live", "live"), ("chart", "data"), ("song", "birdsong")],
     "chart": [("browse", "browse"), ("live", "live")],
 }
@@ -291,15 +291,17 @@ def run(scr, args):
                 if species:
                     index = (index + steps) % len(species)      # back to the start after the last
                     if "song" in presses:                       # start the song before the slow redraw
-                        birdsong.toggle(species[index]["Com_Name"], species[index]["Sci_Name"])
+                        birdsong.toggle(species[index]["Com_Name"])
                     show_page(scr, species, index)
                 last_press = time.time()
                 continue
 
-            if "song" in presses:
+            if "song" in presses:      # the bird on screen: browse page, or the live screen
                 if page == "browse" and species:
-                    birdsong.toggle(species[index]["Com_Name"], species[index]["Sci_Name"])
+                    birdsong.toggle(species[index]["Com_Name"])
                     last_press = time.time()
+                elif page == "live" and shown:
+                    birdsong.toggle(shown[2])
                 continue
 
             if page != "live":

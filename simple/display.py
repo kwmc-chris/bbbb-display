@@ -1,6 +1,6 @@
-"""The simple display, in portrait: the latest bird's photo fills the screen,
-with its everyday name at the top (Robin, not European Robin) and a verse
-from a classic poem that mentions it at the bottom - a different verse each time.
+"""The simple display, in portrait: the latest bird's everyday name at the top
+(Robin, not European Robin), its whole photo across the width, and a verse
+from a classic poem that mentions it underneath - a different verse each time.
 
 Buttons (optional): "song" plays or stops the bird's song; hold the SHUTDOWN
 buttons to shut down.
@@ -24,8 +24,7 @@ SATURATION = 0.5            # photo colour strength, 0-1
 POLL_SECONDS = 30           # how often to check for a new bird
 MIN_REFRESH_SECONDS = 180   # shortest gap between redraws (a redraw takes ~25 s)
 AUTOPLAY_SONG = False       # play each new bird's song (needs a speaker)
-BOX_OPACITY = 0.85          # boxes behind the text: 0 = clear, 1 = solid white
-VERSE_MAX_SHARE = 0.28      # the verse box may take up to this much of the screen height
+PHOTO_MAX_SHARE = 0.6       # a tall photo may take up to this much of the screen height
 MARGIN = 16
 NAME_FONT = "DejaVuSans-Bold.ttf"
 VERSE_FONT = "DejaVuSans-Bold.ttf"
@@ -52,12 +51,6 @@ def bird_names(com_name):
 
 # --- Drawing ---
 
-def box(img, x0, y0, x1, y1):
-    """Lighten part of the photo so black text on it is easy to read."""
-    area = img.crop((x0, y0, x1, y1))
-    img.paste(Image.blend(area, Image.new("RGB", area.size, WHITE), BOX_OPACITY), (x0, y0))
-
-
 def layout_verse(d, verse_lines, size, width):
     """Wrap the verse; a long line carries on indented. Returns [(text, indent)]."""
     fnt = screen.font(VERSE_FONT, size)
@@ -70,65 +63,62 @@ def layout_verse(d, verse_lines, size, width):
 
 
 def render(size, name, photo, credit, verse):
-    """size = (width, height) in portrait."""
+    """size = (width, height) in portrait. The name at the top, then the whole
+    photo across the width, then the verse underneath."""
     w, h = size
     k = w / 400                     # text sizes grow on bigger screens
-    m, pad = MARGIN, 10             # pad = space inside the boxes
-
+    m = MARGIN
     img = Image.new("RGB", size, WHITE)
-    if photo:
-        try:
-            img = ImageOps.fit(ImageOps.exif_transpose(Image.open(photo)).convert("RGB"), size)
-        except Exception as e:      # damaged file: carry on without it
-            print(f"Couldn't use photo {photo}: {e}")
     d = ImageDraw.Draw(img)
     d.fontmode = "1"                # crisp text on e-ink
 
-    # Name in a box at the top, smaller if it's long
+    # Name at the top, smaller if it's long
     for name_size in range(int(40 * k), int(22 * k), -2):
         f = screen.font(NAME_FONT, name_size)
-        if d.textlength(name, font=f) <= w - 2 * m - 2 * pad:
+        if d.textlength(name, font=f) <= w - 2 * m:
             break
-    name = screen.shorten(d, name, f, w - 2 * m - 2 * pad)
-    box(img, m, m, m + int(d.textlength(name, font=f)) + 2 * pad, m + name_size + 2 * pad)
-    d.text((m + pad, m + pad - name_size // 6), name, font=f, fill=BLACK)
+    d.text((m, m - name_size // 6), screen.shorten(d, name, f, w - 2 * m), font=f, fill=BLACK)
+    y = m + name_size + 10          # y = how far down the screen we've got
 
-    # Photo credit, small, along the very bottom
+    # Photo across the full width. Only a tall photo gets trimmed (top and bottom).
+    if photo:
+        try:
+            pic = ImageOps.exif_transpose(Image.open(photo)).convert("RGB")
+            photo_h = min(round(w * pic.height / pic.width), int(h * PHOTO_MAX_SHARE))
+            img.paste(ImageOps.fit(pic, (w, photo_h)), (0, y))
+            y += photo_h
+        except Exception as e:      # damaged file: carry on without it
+            print(f"Couldn't use photo {photo}: {e}")
+
+    # Photo credit, small, just under the photo on the right
     if credit:
         f = screen.font(SMALL_FONT, 10)
         credit = screen.shorten(d, credit, f, w - 2 * m)
-        cw = int(d.textlength(credit, font=f))
-        box(img, w - m - cw - 6, h - 16, w - m, h - 2)
-        d.text((w - m - cw - 3, h - 15), credit, font=f, fill=BLACK)
+        d.text((w - m - d.textlength(credit, font=f), y + 2), credit, font=f, fill=BLACK)
+        y += 14
 
     if not verse:
         return img
 
-    # Verse in a box at the bottom: the biggest size that fits, preferring one
-    # where no line has to wrap. Author and title share one line under it.
-    text_w = w - 2 * m - 2 * pad
+    # Verse in the space left: the biggest size that fits, preferring one where
+    # no line has to wrap. Author and title share one line under it.
+    y += 12
+    text_w = w - 2 * m
     f_source = screen.font(SMALL_FONT, int(13 * k))
     source_h = int(17 * k)
     source = "— " + ", ".join(x for x in (verse["author"], verse["title"]) if x)
     source = screen.shorten(d, source, f_source, text_w)
-    space = int(h * VERSE_MAX_SHARE) - 2 * pad - 6 - source_h
-    sizes = range(int(22 * k), int(13 * k), -1)
+    space = h - y - m - 6 - source_h
+    sizes = range(int(24 * k), int(12 * k), -1)
     layouts = {s: layout_verse(d, verse["lines"], s, text_w) for s in sizes}
     fits = [s for s in sizes if len(layouts[s]) * int(s * 1.35) <= space] or [sizes[-1]]
     size = next((s for s in fits if len(layouts[s]) == len(verse["lines"])), fits[0])
     line_h = int(size * 1.35)
-    lines = layouts[size][:max(space // line_h, 1)]     # cut only if too long even when small
-
     f = screen.font(VERSE_FONT, size)
-    widest = max([d.textlength(t, font=f) + i for t, i in lines] + [d.textlength(source, font=f_source)])
-    right = m + 2 * pad + int(widest)                   # box only as wide as the text
-    top = h - 20 - (len(lines) * line_h + 6 + source_h + 2 * pad)
-    box(img, m, top, right, h - 20)
-    y = top + pad
-    for text, indent in lines:
-        d.text((m + pad + indent, y), text, font=f, fill=BLACK)
+    for text, indent in layouts[size][:max(space // line_h, 1)]:
+        d.text((m + indent, y), text, font=f, fill=BLACK)
         y += line_h
-    d.text((right - pad - d.textlength(source, font=f_source), y + 6), source, font=f_source, fill=BLACK)
+    d.text((w - m - d.textlength(source, font=f_source), y + 6), source, font=f_source, fill=BLACK)
     return img
 
 
@@ -173,7 +163,7 @@ def run(scr, args):
             det = birdnet.latest()
             if det and not same(det, shown) and time.time() - last_draw >= MIN_REFRESH_SECONDS:
                 if AUTOPLAY_SONG:       # start the song before the slow redraw
-                    birdsong.play(det["Com_Name"], det["Sci_Name"])
+                    birdsong.play(det["Com_Name"])
                 show_bird(scr, det["Com_Name"], det["Sci_Name"])
                 shown, last_draw = det, time.time()
             elif det is None and (args.once or args.preview):
@@ -191,6 +181,6 @@ def run(scr, args):
                 if buttons.shutdown():
                     return
             elif "song" in presses and shown:
-                birdsong.toggle(shown["Com_Name"], shown["Sci_Name"])
+                birdsong.toggle(shown["Com_Name"])
         except Exception:
             log_error()

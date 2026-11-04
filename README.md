@@ -3,9 +3,9 @@
 Shows the birds a **BirdNET-Pi** hears on a **Pimoroni Inky Impression** e-ink screen (4" or 7.3"), on a Raspberry Pi 4. Each Pi runs one of two displays, chosen in its `settings.toml`:
 
 - **full**: the latest bird with today's totals, plus browse pages (photo, facts, QR code to Wikipedia) and an hour-by-hour chart, using the buttons.
-- **simple**: in portrait, the bird's photo fills the screen, with its everyday name (*Robin*, not *European Robin*) and a verse from a classic poem that mentions it.
+- **simple**: in portrait, the bird's everyday name (*Robin*, not *European Robin*), its whole photo across the width, and underneath a verse from a classic poem that mentions it.
 
-Both can play the bird's song through a USB speaker or the headphone socket, and both can shut the Pi down from the buttons.
+Both can play BirdNET-Pi's own recording of the bird through a USB speaker or the headphone socket (the song button, on the live screen or a browse page), and both can shut the Pi down from the buttons.
 
 ## Files
 
@@ -54,6 +54,7 @@ sudo systemctl stop bbbb-display
 .venv/bin/python start.py --bird "European Robin"     # any bird
 .venv/bin/python start.py --page browse               # full display: browse, chart or sleep
 .venv/bin/python start.py --test-buttons              # shows each button pressed
+.venv/bin/python start.py --test-sound                # lists sound devices, plays a test beep
 .venv/bin/python start.py                             # keep running (Ctrl+C stops)
 sudo systemctl start bbbb-display
 ```
@@ -82,6 +83,8 @@ If the update log says a file was "edited on this Pi", put the file back with `g
 
 **Debug mode.** `debug = true` (near the top of `settings.toml`) is for testing: the display checks for birds every second, redraws for every new one, and draws in the background without waiting for the screen to finish, so a new picture can start before the last refresh has. If pictures pile up, only the newest is drawn. `DEBUG_SETTINGS` in `start.py` lists exactly what it changes. Set it back to `false` afterwards, as constant refreshing is hard on an e-ink screen.
 
+**Sound.** The song button plays BirdNET-Pi's best recent recording of the bird on screen, if it still has one on disk (BirdNET-Pi deletes old recordings, so some birds have none). With `speaker = "auto"` it uses a USB speaker if there is one, otherwise the headphone socket. A USB device with a mic is never used, so it can't pick the BirdNET mic. If it isn't working, `--test-sound` shows which device it picks and why, and the log shows any playing error.
+
 **Buttons.** Each job (browse, live, chart, song) has a GPIO pin. The Inky's own buttons are A = 5, B = 6, C = 16 and D = 24. Your own buttons connect a free pin (e.g. 4, 12, 13 or 26) to ground. Don't use 2, 3, 8, 9, 10, 11, 17, 22 or 27, because the screen needs them. Holding the two `shutdown` buttons for 3 seconds shuts the Pi down safely. On the full display the screen then shows "Sleeping since…". Unplug and replug the power to start it again.
 
 **Birds.** `full/birdfacts.json` holds the browse tile facts. Birds not in it get facts from Wikidata. `simple/birdnames.json` gives each bird a short name and the words to search poems for, e.g. `"European Robin": {"name": "Robin", "search": ["robin", "redbreast"]}`.
@@ -97,4 +100,4 @@ sudo systemctl restart bbbb-display        # restart, e.g. after changing settin
 
 ## Credits
 
-Photos: Wikimedia Commons or Flickr (credit shown on screen). Poems: PoetryDB (public domain). Birdsong: Wikimedia Commons, or BirdNET-Pi's own recordings. Detections: BirdNET-Pi.
+Photos: Wikimedia Commons or Flickr (credit shown on screen). Poems: PoetryDB (public domain). Birdsong: BirdNET-Pi's own recordings. Detections: BirdNET-Pi.

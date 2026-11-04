@@ -6,6 +6,7 @@
     .venv/bin/python start.py --bird "European Robin"   show one bird, then stop
     .venv/bin/python start.py --page browse          full display: show browse, chart or sleep
     .venv/bin/python start.py --test-buttons         print each button pressed
+    .venv/bin/python start.py --test-sound           list sound devices, play a test beep
 
 Add --preview test.png to save a picture instead of using the screen, with
 --size 800x480 to try another screen size and --display to try the other display.
@@ -106,6 +107,7 @@ def main():
     p.add_argument("--size", metavar="WxH", help="screen size for --preview, e.g. 800x480")
     p.add_argument("--display", choices=["full", "simple"], help="use this display, not the one in settings.toml")
     p.add_argument("--test-buttons", action="store_true", help="print each button pressed")
+    p.add_argument("--test-sound", action="store_true", help="list sound devices and play a beep")
     args = p.parse_args()
 
     sys.stdout = Timestamped(sys.stdout)
@@ -119,6 +121,9 @@ def main():
 
     if args.test_buttons:
         return test_buttons()
+    if args.test_sound:
+        from common import birdsong
+        return birdsong.test()
 
     from common.screen import Screen
     display = importlib.import_module(name + ".display")
