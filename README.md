@@ -16,9 +16,9 @@ Both can play BirdNET-Pi's own recording of the bird through a USB speaker (the 
 | `install.sh` | First-time setup on a new Pi: packages, screen, start at boot, nightly update |
 | `update.sh` | Nightly update from GitHub |
 | `requirements.txt` | Python packages |
-| `full/` | The full display: `display.py` (live screen and buttons), `browse.py`, `info.py` (Wikipedia and Wikidata facts), `birdfacts.json` (your tile facts), `nophoto.jpg` |
-| `simple/` | The simple display: `display.py`, `poems.py` (verses from [PoetryDB](https://poetrydb.org)), `birdnames.json` (name shown and poem search words) |
-| `common/` | Shared by both: BirdNET-Pi's database, photos, birdsong, buttons, the screen |
+| `full/` | The full display: `display.py` (live screen and buttons), `browse.py`, `info.py` (Wikipedia and Wikidata facts), `nophoto.jpg` |
+| `simple/` | The simple display: `display.py`, `poems.py` (verses from [PoetryDB](https://poetrydb.org)) |
+| `common/` | Shared by both: BirdNET-Pi's database, photos, birdsong, buttons, the screen, and `birdinfo.json` (your names and facts for each bird) |
 
 Made on the Pi and not in GitHub: `settings.toml`, `.venv/`, `cache/` (downloaded photos, songs and poems, safe to delete), `display.log`, `update.log`.
 
@@ -88,7 +88,15 @@ If the update log says a file was "edited on this Pi", put the file back with `g
 
 **Buttons.** Each job (browse, live, song) has a GPIO pin. The Inky's own buttons are A = 5, B = 6, C = 16 and D = 24; C isn't used. Your own buttons connect a free pin (e.g. 4, 12, 13 or 26) to ground. Don't use 2, 3, 8, 9, 10, 11, 17, 22 or 27, because the screen needs them. Holding the two `shutdown` buttons for 3 seconds shuts the Pi down safely. On the full display the screen then shows "Sleeping since…". Unplug and replug the power to start it again.
 
-**Birds.** `full/birdfacts.json` holds the browse tile facts. Birds not in it get facts from Wikidata. `simple/birdnames.json` gives each bird a short name and the words to search poems for, e.g. `"European Robin": {"name": "Robin", "search": ["robin", "redbreast"]}`.
+**Birds.** `common/birdinfo.json` has an entry for each bird, under BirdNET-Pi's name for it:
+```
+"European Robin": {
+  "sci": "Erithacus rubecula", "short_name": "Robin", "search": ["robin", "redbreast"],
+  "habitat": "Gardens", "food": "Insects", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Green",
+  "order": "Passeriformes", "family": "Muscicapidae", "family_name": "Old World Flycatchers"
+}
+```
+`sci` also finds the bird when BirdNET-Pi uses another name for it. `short_name` and `search` are for the simple display: the name shown and the words to search poems for. The rest are the browse page tiles on the full display. Every field is optional. Birds not listed get a short name without words like "European", and tile facts from Wikidata.
 
 ## Useful commands
 

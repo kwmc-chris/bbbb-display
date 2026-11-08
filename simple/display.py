@@ -5,17 +5,12 @@ that mentions it - a different verse each time.
 Buttons: "song" plays or stops the bird's song; hold the SHUTDOWN buttons to shut down.
 """
 
-import json
-import os
 import time
 
 from PIL import Image, ImageDraw, ImageOps
 
-from common import birdnet, birdsong, buttons, log_error, photos, screen
+from common import bird_info, birdnet, birdsong, buttons, log_error, photos, screen
 from simple import poems
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-NAMES_FILE = os.path.join(HERE, "birdnames.json")    # BirdNET name -> name shown + poem words
 
 # --- Settings (change any of these under [simple] in settings.toml) ---
 ROTATE = 90                 # 90 or 270, depending which way up the screen is
@@ -33,19 +28,12 @@ DROP_WORDS = {"european", "eurasian", "common", "western", "northern", "eastern"
 BLACK, WHITE = (0, 0, 0), (255, 255, 255)
 
 
-def bird_names(com_name):
-    """(name to show, words to search poems for), from birdnames.json.
+def bird_names(com_name, sci_name=None):
+    """(name to show, words to search poems for), from common/birdinfo.json.
     Other birds lose words like "European" and are searched by their last word."""
-    try:
-        with open(NAMES_FILE, encoding="utf-8") as f:
-            entry = json.load(f).get(com_name)
-    except (OSError, ValueError) as e:
-        print(f"Couldn't read birdnames.json: {e}")
-        entry = None
-    if entry:
-        return entry["name"], entry["search"]
+    entry = bird_info(com_name, sci_name)
     words = [w for w in com_name.split() if w.lower() not in DROP_WORDS] or com_name.split()
-    return " ".join(words), [words[-1].lower()]
+    return entry.get("short_name") or " ".join(words), entry.get("search") or [words[-1].lower()]
 
 
 # --- Drawing ---
@@ -120,7 +108,7 @@ def render(size, name, photo, credit, verse):
 
 
 def show_bird(scr, com_name, sci_name):
-    name, words = bird_names(com_name)
+    name, words = bird_names(com_name, sci_name)
     photo, credit = photos.get_photo(com_name, sci_name, name)
     verse = poems.find_verse(com_name, words)
     print(f"{name}: " + (f'{verse["author"]}, "{verse["title"]}"' if verse else "no verse found"))

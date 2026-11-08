@@ -2,17 +2,15 @@
 
     description(name, sci)   opening text of its Wikipedia article
     wiki_link(name, sci)     short link to the article (for the QR code)
-    details(name, sci)       tile facts: birdfacts.json, else Wikidata
+    details(name, sci)       tile facts: common/birdinfo.json, else Wikidata
 """
 
 import os
 import re
 import urllib.parse
 
-from common import CACHE, web
+from common import CACHE, bird_info, web
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-FACTS_FILE = os.path.join(HERE, "birdfacts.json")         # your facts for the tiles
 ARTICLES = os.path.join(CACHE, "wikipedia.json")
 WIKIDATA = os.path.join(CACHE, "wikidata.json")
 RANK_FAMILY, RANK_ORDER = "Q35409", "Q36602"             # Wikidata ids
@@ -66,20 +64,14 @@ def first_sentences(text, sentences, max_chars):
 
 def details(com_name, sci_name=None):
     """Tile facts: {"source": "file", habitat, food, nesting, behavior, uk_status...}
-    from birdfacts.json, else {"source": "wikidata", conservation, order, family}, or {}."""
+    from birdinfo.json, else {"source": "wikidata", conservation, order, family}, or {}."""
     return from_file(com_name, sci_name) or from_wikidata(com_name, sci_name) or {}
 
 
 def from_file(com_name, sci_name=None):
-    """The bird's entry in birdfacts.json, by scientific name or "name", or None."""
-    facts = web.load_json(FACTS_FILE)
-    entry = facts.get(sci_name or "")
-    if not entry:
-        entry = next((v for v in facts.values() if isinstance(v, dict)
-                      and v.get("name", "").lower() == com_name.lower()), None)
-    if not entry:
-        return None
-    return dict({k: v for k, v in entry.items() if k != "name"}, source="file")
+    """The bird's tile facts from birdinfo.json, or None."""
+    facts = {k: v for k, v in bird_info(com_name, sci_name).items() if k not in ("sci", "short_name", "search")}
+    return dict(facts, source="file") if facts else None
 
 
 def from_wikidata(com_name, sci_name=None):

@@ -2,7 +2,7 @@
 
 Photo, names and times heard at the top; five tiles (habitat, food, nesting,
 behaviour, UK status); description and QR code to Wikipedia below. Birds not in
-birdfacts.json get one conservation tile and a longer description.
+birdinfo.json get one conservation tile and a longer description.
 
 Tile icons are drawn, or use your own PNG in full/icons/ (e.g. icons/trees.png).
 Icon sheet:  .venv/bin/python -c "from full import browse; browse.icon_sheet('icons.png')"
@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RECENT_SPECIES_LIMIT = 30         # birds in the browse list
 TIMES_SHOWN = 10                  # detection times listed
 DESCRIPTION_LINES = 4             # description lines under the tiles
-FALLBACK_DESCRIPTION_LINES = 5    # description lines for birds not in birdfacts.json
+FALLBACK_DESCRIPTION_LINES = 5    # description lines for birds not in birdinfo.json
 QR_SIZES = (3, 2)                 # pixels per QR square, largest that fits
 QR_GAP = 12                       # space between description and QR code
 
@@ -542,7 +542,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                 d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
                 ty += line_h
     else:
-        # Not in birdfacts.json: conservation tile and QR code right, description left
+        # Not in birdinfo.json: conservation tile and QR code right, description left
         right_bottom = tile_top
         if details.get("conservation"):
             code, bg, fg = iucn_tile(details["conservation"])
@@ -558,7 +558,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                                     min(FALLBACK_DESCRIPTION_LINES, room)):
                 d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
                 ty += 19
-        d.text((m, ty + 6), "Add this bird to birdfacts.json for more details.",
+        d.text((m, ty + 6), "Add this bird to common/birdinfo.json for more details.",
                font=_font("small"), fill=COLOURS["blue"])
 
     return canvas

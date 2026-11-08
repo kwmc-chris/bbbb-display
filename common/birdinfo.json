@@ -1,0 +1,306 @@
+{
+  "_readme": "One entry per bird, under BirdNET-Pi's name for it (also found by sci, its scientific name, or a list of them). All fields are optional. short_name, search: the simple display's name and the words searched for in poems, earliest first. habitat to family_name: the full display's browse tiles. uk_status: BTO Birds of Conservation Concern 5 (Red, Amber, Green or null). Birds not listed get a short name without words like 'European', and tile facts from Wikidata. Changes are used straight away.",
+
+  "European Robin": {
+    "sci": "Erithacus rubecula", "short_name": "Robin", "search": ["robin", "redbreast"],
+    "habitat": "Gardens", "food": "Insects", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Muscicapidae", "family_name": "Old World Flycatchers"
+  },
+  "Eurasian Blackbird": {
+    "sci": "Turdus merula", "short_name": "Blackbird", "search": ["blackbird", "ouzel"],
+    "habitat": "Gardens", "food": "Worms & Berries", "nesting": "Cup", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Turdidae", "family_name": "Thrushes"
+  },
+  "Song Thrush": {
+    "sci": "Turdus philomelos", "short_name": "Song Thrush", "search": ["thrush", "throstle"],
+    "habitat": "Woodlands", "food": "Snails & Worms", "nesting": "Cup", "behavior": "Ground Forager", "uk_status": "Amber",
+    "order": "Passeriformes", "family": "Turdidae", "family_name": "Thrushes"
+  },
+  "Mistle Thrush": {
+    "sci": "Turdus viscivorus", "short_name": "Mistle Thrush", "search": ["thrush", "throstle"],
+    "habitat": "Open Woodlands", "food": "Worms & Berries", "nesting": "Cup", "behavior": "Ground Forager", "uk_status": "Red",
+    "order": "Passeriformes", "family": "Turdidae", "family_name": "Thrushes"
+  },
+  "Redwing": {
+    "sci": "Turdus iliacus", "short_name": "Redwing", "search": ["redwing", "thrush"],
+    "habitat": "Farmland", "food": "Worms & Berries", "nesting": "Cup", "behavior": "Ground Forager", "uk_status": "Amber",
+    "order": "Passeriformes", "family": "Turdidae", "family_name": "Thrushes"
+  },
+  "Fieldfare": {
+    "sci": "Turdus pilaris", "short_name": "Fieldfare", "search": ["fieldfare", "thrush"],
+    "habitat": "Farmland", "food": "Worms & Berries", "nesting": "Cup", "behavior": "Ground Forager", "uk_status": "Red",
+    "order": "Passeriformes", "family": "Turdidae", "family_name": "Thrushes"
+  },
+  "Common Wood-Pigeon": {
+    "sci": "Columba palumbus", "short_name": "Woodpigeon", "search": ["wood-pigeon", "pigeon", "dove"],
+    "habitat": "Open Woodlands", "food": "Plants", "nesting": "Tree", "behavior": "Ground Forager", "uk_status": "Amber",
+    "order": "Columbiformes", "family": "Columbidae", "family_name": "Pigeons and Doves"
+  },
+  "Eurasian Collared-Dove": {
+    "sci": "Streptopelia decaocto", "short_name": "Collared Dove", "search": ["dove", "doves"],
+    "habitat": "Towns", "food": "Seeds", "nesting": "Tree", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Columbiformes", "family": "Columbidae", "family_name": "Pigeons and Doves"
+  },
+  "Stock Dove": {
+    "sci": "Columba oenas", "short_name": "Stock Dove", "search": ["dove", "doves"],
+    "habitat": "Farmland", "food": "Seeds", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Amber",
+    "order": "Columbiformes", "family": "Columbidae", "family_name": "Pigeons and Doves"
+  },
+  "Rock Pigeon": {
+    "sci": "Columba livia", "short_name": "Feral Pigeon", "search": ["pigeon", "pigeons"],
+    "habitat": "Towns", "food": "Seeds", "nesting": "Building", "behavior": "Ground Forager", "uk_status": null,
+    "order": "Columbiformes", "family": "Columbidae", "family_name": "Pigeons and Doves"
+  },
+  "Eurasian Blue Tit": {
+    "sci": "Cyanistes caeruleus", "short_name": "Blue Tit", "search": ["titmouse", "tit"],
+    "habitat": "Woodlands", "food": "Insects", "nesting": "Cavity", "behavior": "Foliage Gleaner", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Paridae", "family_name": "Tits and Chickadees"
+  },
+  "Great Tit": {
+    "sci": "Parus major", "short_name": "Great Tit", "search": ["titmouse", "tit"],
+    "habitat": "Woodlands", "food": "Insects & Seeds", "nesting": "Cavity", "behavior": "Foliage Gleaner", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Paridae", "family_name": "Tits and Chickadees"
+  },
+  "Coal Tit": {
+    "sci": "Periparus ater", "short_name": "Coal Tit", "search": ["titmouse", "tit"],
+    "habitat": "Conifer Forests", "food": "Insects & Seeds", "nesting": "Cavity", "behavior": "Foliage Gleaner", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Paridae", "family_name": "Tits and Chickadees"
+  },
+  "Long-tailed Tit": {
+    "sci": "Aegithalos caudatus", "short_name": "Long-tailed Tit", "search": ["titmouse", "tit"],
+    "habitat": "Woodland Edges", "food": "Insects", "nesting": "Dome", "behavior": "Foliage Gleaner", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Aegithalidae", "family_name": "Long-tailed Tits"
+  },
+  "Eurasian Wren": {
+    "sci": "Troglodytes troglodytes", "short_name": "Wren", "search": ["wren", "wrens"],
+    "habitat": "Woodlands", "food": "Insects", "nesting": "Dome", "behavior": "Ground Forager", "uk_status": "Amber",
+    "order": "Passeriformes", "family": "Troglodytidae", "family_name": "Wrens"
+  },
+  "Dunnock": {
+    "sci": "Prunella modularis", "short_name": "Dunnock", "search": ["hedge-sparrow", "dunnock", "sparrow"],
+    "habitat": "Hedgerows", "food": "Insects", "nesting": "Cup", "behavior": "Ground Forager", "uk_status": "Amber",
+    "order": "Passeriformes", "family": "Prunellidae", "family_name": "Accentors"
+  },
+  "House Sparrow": {
+    "sci": "Passer domesticus", "short_name": "House Sparrow", "search": ["sparrow", "sparrows"],
+    "habitat": "Towns", "food": "Seeds", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Red",
+    "order": "Passeriformes", "family": "Passeridae", "family_name": "Old World Sparrows"
+  },
+  "European Starling": {
+    "sci": "Sturnus vulgaris", "short_name": "Starling", "search": ["starling", "starlings"],
+    "habitat": "Towns", "food": "Omnivore", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Red",
+    "order": "Passeriformes", "family": "Sturnidae", "family_name": "Starlings"
+  },
+  "Common Chaffinch": {
+    "sci": "Fringilla coelebs", "short_name": "Chaffinch", "search": ["chaffinch", "finch"],
+    "habitat": "Woodlands", "food": "Seeds", "nesting": "Cup", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Fringillidae", "family_name": "Finches"
+  },
+  "European Goldfinch": {
+    "sci": "Carduelis carduelis", "short_name": "Goldfinch", "search": ["goldfinch", "finch"],
+    "habitat": "Gardens", "food": "Seeds", "nesting": "Cup", "behavior": "Foliage Gleaner", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Fringillidae", "family_name": "Finches"
+  },
+  "European Greenfinch": {
+    "sci": "Chloris chloris", "short_name": "Greenfinch", "search": ["greenfinch", "finch"],
+    "habitat": "Gardens", "food": "Seeds", "nesting": "Cup", "behavior": "Foliage Gleaner", "uk_status": "Red",
+    "order": "Passeriformes", "family": "Fringillidae", "family_name": "Finches"
+  },
+  "Eurasian Bullfinch": {
+    "sci": "Pyrrhula pyrrhula", "short_name": "Bullfinch", "search": ["bullfinch", "finch"],
+    "habitat": "Woodland Edges", "food": "Seeds & Buds", "nesting": "Cup", "behavior": "Foliage Gleaner", "uk_status": "Amber",
+    "order": "Passeriformes", "family": "Fringillidae", "family_name": "Finches"
+  },
+  "Eurasian Siskin": {
+    "sci": "Spinus spinus", "short_name": "Siskin", "search": ["siskin", "finch"],
+    "habitat": "Conifer Forests", "food": "Seeds", "nesting": "Cup", "behavior": "Foliage Gleaner", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Fringillidae", "family_name": "Finches"
+  },
+  "Eurasian Linnet": {
+    "sci": "Linaria cannabina", "short_name": "Linnet", "search": ["linnet", "linnets"]
+  },
+  "Yellowhammer": {
+    "short_name": "Yellowhammer", "search": ["yellowhammer", "yellow-hammer"]
+  },
+  "Goldcrest": {
+    "sci": "Regulus regulus", "short_name": "Goldcrest", "search": ["goldcrest", "kinglet", "wren"],
+    "habitat": "Conifer Forests", "food": "Insects", "nesting": "Cup", "behavior": "Foliage Gleaner", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Regulidae", "family_name": "Kinglets"
+  },
+  "Common Chiffchaff": {
+    "sci": "Phylloscopus collybita", "short_name": "Chiffchaff", "search": ["chiffchaff", "warbler"],
+    "habitat": "Woodlands", "food": "Insects", "nesting": "Dome", "behavior": "Foliage Gleaner", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Phylloscopidae", "family_name": "Leaf Warblers"
+  },
+  "Willow Warbler": {
+    "sci": "Phylloscopus trochilus", "short_name": "Willow Warbler", "search": ["warbler", "warblers"],
+    "habitat": "Scrub", "food": "Insects", "nesting": "Ground", "behavior": "Foliage Gleaner", "uk_status": "Amber",
+    "order": "Passeriformes", "family": "Phylloscopidae", "family_name": "Leaf Warblers"
+  },
+  "Eurasian Blackcap": {
+    "sci": "Sylvia atricapilla", "short_name": "Blackcap", "search": ["blackcap", "warbler"],
+    "habitat": "Woodlands", "food": "Insects & Fruit", "nesting": "Cup", "behavior": "Foliage Gleaner", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Sylviidae", "family_name": "Sylviid Warblers"
+  },
+  "Eurasian Reed Warbler": {
+    "sci": "Acrocephalus scirpaceus", "short_name": "Reed Warbler", "search": ["warbler", "reeds"]
+  },
+  "Common Nightingale": {
+    "short_name": "Nightingale", "search": ["nightingale", "philomel"]
+  },
+  "Great Spotted Woodpecker": {
+    "sci": "Dendrocopos major", "short_name": "Great Spotted Woodpecker", "search": ["woodpecker"],
+    "habitat": "Woodlands", "food": "Insects", "nesting": "Cavity", "behavior": "Bark Forager", "uk_status": "Green",
+    "order": "Piciformes", "family": "Picidae", "family_name": "Woodpeckers"
+  },
+  "Eurasian Green Woodpecker": {
+    "sci": "Picus viridis", "short_name": "Green Woodpecker", "search": ["woodpecker", "yaffle"],
+    "habitat": "Parkland", "food": "Ants", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Piciformes", "family": "Picidae", "family_name": "Woodpeckers"
+  },
+  "Eurasian Nuthatch": {
+    "sci": "Sitta europaea", "short_name": "Nuthatch", "search": ["nuthatch"],
+    "habitat": "Woodlands", "food": "Insects & Nuts", "nesting": "Cavity", "behavior": "Bark Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Sittidae", "family_name": "Nuthatches"
+  },
+  "Eurasian Treecreeper": {
+    "sci": "Certhia familiaris", "short_name": "Treecreeper", "search": ["treecreeper"],
+    "habitat": "Woodlands", "food": "Insects", "nesting": "Bark Crevice", "behavior": "Bark Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Certhiidae", "family_name": "Treecreepers"
+  },
+  "White Wagtail": {
+    "sci": "Motacilla alba", "short_name": "Pied Wagtail", "search": ["wagtail", "wagtails"],
+    "habitat": "Open Ground", "food": "Insects", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Motacillidae", "family_name": "Wagtails and Pipits"
+  },
+  "Gray Wagtail": {
+    "sci": "Motacilla cinerea", "short_name": "Grey Wagtail", "search": ["wagtail", "wagtails"],
+    "habitat": "Rivers", "food": "Insects", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Red",
+    "order": "Passeriformes", "family": "Motacillidae", "family_name": "Wagtails and Pipits"
+  },
+  "Carrion Crow": {
+    "sci": "Corvus corone", "short_name": "Crow", "search": ["crow", "crows"],
+    "habitat": "Open Country", "food": "Omnivore", "nesting": "Tree", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Corvidae", "family_name": "Crows and Jays"
+  },
+  "Rook": {
+    "sci": "Corvus frugilegus", "short_name": "Rook", "search": ["rook", "rooks"],
+    "habitat": "Farmland", "food": "Worms & Grain", "nesting": "Tree", "behavior": "Ground Forager", "uk_status": "Amber",
+    "order": "Passeriformes", "family": "Corvidae", "family_name": "Crows and Jays"
+  },
+  "Eurasian Jackdaw": {
+    "sci": ["Coloeus monedula", "Corvus monedula"], "short_name": "Jackdaw", "search": ["jackdaw", "daw"],
+    "habitat": "Towns", "food": "Omnivore", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Corvidae", "family_name": "Crows and Jays"
+  },
+  "Eurasian Magpie": {
+    "sci": "Pica pica", "short_name": "Magpie", "search": ["magpie", "magpies"],
+    "habitat": "Gardens", "food": "Omnivore", "nesting": "Tree", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Corvidae", "family_name": "Crows and Jays"
+  },
+  "Eurasian Jay": {
+    "sci": "Garrulus glandarius", "short_name": "Jay", "search": ["jay", "jays"],
+    "habitat": "Woodlands", "food": "Acorns & Insects", "nesting": "Tree", "behavior": "Ground Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Corvidae", "family_name": "Crows and Jays"
+  },
+  "Black-headed Gull": {
+    "sci": "Chroicocephalus ridibundus", "short_name": "Black-headed Gull", "search": ["gull", "gulls", "sea-mew"],
+    "habitat": "Lakes & Farmland", "food": "Omnivore", "nesting": "Ground", "behavior": "Surface Dip", "uk_status": "Amber",
+    "order": "Charadriiformes", "family": "Laridae", "family_name": "Gulls and Terns"
+  },
+  "Herring Gull": {
+    "sci": "Larus argentatus", "short_name": "Herring Gull", "search": ["gull", "gulls", "sea-mew"],
+    "habitat": "Coasts & Towns", "food": "Omnivore", "nesting": "Ground", "behavior": "Scavenger", "uk_status": "Red",
+    "order": "Charadriiformes", "family": "Laridae", "family_name": "Gulls and Terns"
+  },
+  "European Herring Gull": {
+    "short_name": "Herring Gull", "search": ["gull", "gulls", "sea-mew"]
+  },
+  "Common Swift": {
+    "sci": "Apus apus", "short_name": "Swift", "search": ["swifts"],
+    "habitat": "Towns", "food": "Insects", "nesting": "Building", "behavior": "Aerial Forager", "uk_status": "Red",
+    "order": "Apodiformes", "family": "Apodidae", "family_name": "Swifts"
+  },
+  "Western House-Martin": {
+    "sci": "Delichon urbicum", "short_name": "House Martin", "search": ["martlet", "martins"],
+    "habitat": "Towns", "food": "Insects", "nesting": "Building", "behavior": "Aerial Forager", "uk_status": "Red",
+    "order": "Passeriformes", "family": "Hirundinidae", "family_name": "Swallows"
+  },
+  "Barn Swallow": {
+    "sci": "Hirundo rustica", "short_name": "Swallow", "search": ["swallow", "swallows"],
+    "habitat": "Farmland", "food": "Insects", "nesting": "Building", "behavior": "Aerial Forager", "uk_status": "Green",
+    "order": "Passeriformes", "family": "Hirundinidae", "family_name": "Swallows"
+  },
+  "Common Cuckoo": {
+    "sci": "Cuculus canorus", "short_name": "Cuckoo", "search": ["cuckoo"],
+    "habitat": "Open Woodlands", "food": "Insects", "nesting": "Brood Parasite", "behavior": "Foliage Gleaner", "uk_status": "Red",
+    "order": "Cuculiformes", "family": "Cuculidae", "family_name": "Cuckoos"
+  },
+  "Eurasian Skylark": {
+    "sci": "Alauda arvensis", "short_name": "Skylark", "search": ["skylark", "lark", "larks"],
+    "habitat": "Grasslands", "food": "Seeds & Insects", "nesting": "Ground", "behavior": "Ground Forager", "uk_status": "Red",
+    "order": "Passeriformes", "family": "Alaudidae", "family_name": "Larks"
+  },
+  "Tawny Owl": {
+    "sci": "Strix aluco", "short_name": "Tawny Owl", "search": ["owl", "owls"],
+    "habitat": "Woodlands", "food": "Small Animals", "nesting": "Cavity", "behavior": "Perch & Pounce", "uk_status": "Amber",
+    "order": "Strigiformes", "family": "Strigidae", "family_name": "Owls"
+  },
+  "Barn Owl": {
+    "short_name": "Barn Owl", "search": ["owl", "owls"]
+  },
+  "Common Buzzard": {
+    "sci": "Buteo buteo", "short_name": "Buzzard", "search": ["buzzard", "hawk"],
+    "habitat": "Open Woodlands", "food": "Small Animals", "nesting": "Tree", "behavior": "Soaring", "uk_status": "Green",
+    "order": "Accipitriformes", "family": "Accipitridae", "family_name": "Hawks and Eagles"
+  },
+  "Red Kite": {
+    "sci": "Milvus milvus", "short_name": "Red Kite", "search": ["kite", "hawk"],
+    "habitat": "Farmland", "food": "Carrion", "nesting": "Tree", "behavior": "Soaring", "uk_status": "Green",
+    "order": "Accipitriformes", "family": "Accipitridae", "family_name": "Hawks and Eagles"
+  },
+  "Eurasian Sparrowhawk": {
+    "sci": "Accipiter nisus", "short_name": "Sparrowhawk", "search": ["sparrowhawk", "hawk"],
+    "habitat": "Woodlands", "food": "Small Birds", "nesting": "Tree", "behavior": "Ambush", "uk_status": "Green",
+    "order": "Accipitriformes", "family": "Accipitridae", "family_name": "Hawks and Eagles"
+  },
+  "Eurasian Kestrel": {
+    "sci": "Falco tinnunculus", "short_name": "Kestrel", "search": ["kestrel", "windhover", "hawk"],
+    "habitat": "Farmland", "food": "Small Animals", "nesting": "Cavity", "behavior": "Hovering", "uk_status": "Amber",
+    "order": "Falconiformes", "family": "Falconidae", "family_name": "Falcons"
+  },
+  "Mallard": {
+    "sci": "Anas platyrhynchos", "short_name": "Mallard", "search": ["mallard", "drake", "duck"],
+    "habitat": "Lakes & Ponds", "food": "Omnivore", "nesting": "Ground", "behavior": "Dabbler", "uk_status": "Amber",
+    "order": "Anseriformes", "family": "Anatidae", "family_name": "Ducks, Geese and Swans"
+  },
+  "Common Pheasant": {
+    "sci": "Phasianus colchicus", "short_name": "Pheasant", "search": ["pheasant", "pheasants"],
+    "habitat": "Farmland", "food": "Seeds", "nesting": "Ground", "behavior": "Ground Forager", "uk_status": null,
+    "order": "Galliformes", "family": "Phasianidae", "family_name": "Pheasants and Allies"
+  },
+  "Gray Heron": {
+    "short_name": "Grey Heron", "search": ["heron", "herons"]
+  },
+  "Common Kingfisher": {
+    "short_name": "Kingfisher", "search": ["kingfisher", "halcyon"]
+  },
+  "Eurasian Moorhen": {
+    "short_name": "Moorhen", "search": ["moorhen", "water-hen"]
+  },
+  "Eurasian Coot": {
+    "short_name": "Coot", "search": ["coot", "coots"]
+  },
+  "Canada Goose": {
+    "short_name": "Canada Goose", "search": ["goose", "geese"]
+  },
+  "Mute Swan": {
+    "short_name": "Mute Swan", "search": ["swan", "swans"]
+  },
+  "Northern Lapwing": {
+    "short_name": "Lapwing", "search": ["lapwing", "plover", "peewit"]
+  },
+  "Eurasian Curlew": {
+    "short_name": "Curlew", "search": ["curlew", "curlews"]
+  }
+}
