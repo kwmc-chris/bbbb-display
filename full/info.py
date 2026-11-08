@@ -1,10 +1,8 @@
-"""Facts about a bird for the full display.
+"""Facts about a bird for the full display; lookups are saved in cache/.
 
-    description(name, sci)   opening text of its Wikipedia article, cut to length
+    description(name, sci)   opening text of its Wikipedia article
     wiki_link(name, sci)     short link to the article (for the QR code)
-    details(name, sci)       tile facts: birdfacts.json, else Wikidata (order, family, status)
-
-Lookups are saved in cache/, so each bird is looked up once.
+    details(name, sci)       tile facts: birdfacts.json, else Wikidata
 """
 
 import os
@@ -14,11 +12,13 @@ import urllib.parse
 from common import CACHE, web
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FACTS_FILE = os.path.join(HERE, "birdfacts.json")         # your facts for the browse tiles
+FACTS_FILE = os.path.join(HERE, "birdfacts.json")         # your facts for the tiles
 ARTICLES = os.path.join(CACHE, "wikipedia.json")
 WIKIDATA = os.path.join(CACHE, "wikidata.json")
-RANK_FAMILY, RANK_ORDER = "Q35409", "Q36602"             # Wikidata's ids for these ranks
+RANK_FAMILY, RANK_ORDER = "Q35409", "Q36602"             # Wikidata ids
 
+
+# --- Wikipedia ---
 
 def article(com_name, sci_name=None):
     """{"text", "url"} for the bird's Wikipedia article, or {}."""
@@ -35,17 +35,19 @@ def article(com_name, sci_name=None):
 
 
 def description(com_name, sci_name=None, sentences=1, max_chars=170):
+    """Opening text of the article, cut to length, or None."""
     text = article(com_name, sci_name).get("text")
     return first_sentences(text, sentences, max_chars) if text else None
 
 
 def wiki_link(com_name, sci_name=None):
+    """Short link to the article, or None."""
     return article(com_name, sci_name).get("url")
 
 
 def first_sentences(text, sentences, max_chars):
-    """The first few sentences, cut to max_chars with "…". A sentence needs 30+
-    characters, so "St." and the like don't end one."""
+    """The first few sentences, cut to max_chars with "…".
+    A sentence must be at least 30 characters long."""
     parts, current = [], ""
     for piece in re.split(r"(?<=[.!?])\s+(?=[A-Z])", re.sub(r"\s+", " ", text).strip()):
         current = f"{current} {piece}".strip()
@@ -60,6 +62,8 @@ def first_sentences(text, sentences, max_chars):
     return result
 
 
+# --- Tile facts ---
+
 def details(com_name, sci_name=None):
     """Tile facts: {"source": "file", habitat, food, nesting, behavior, uk_status...}
     from birdfacts.json, else {"source": "wikidata", conservation, order, family}, or {}."""
@@ -67,6 +71,7 @@ def details(com_name, sci_name=None):
 
 
 def from_file(com_name, sci_name=None):
+    """The bird's entry in birdfacts.json, by scientific name or "name", or None."""
     facts = web.load_json(FACTS_FILE)
     entry = facts.get(sci_name or "")
     if not entry:
@@ -78,12 +83,14 @@ def from_file(com_name, sci_name=None):
 
 
 def from_wikidata(com_name, sci_name=None):
+    """{"source": "wikidata", conservation, order, family} from Wikidata, or {}."""
     saved = web.load_json(WIKIDATA)
     if saved.get(com_name):
         return saved[com_name]
 
+    # The Wikidata item for the bird's article
     qid = None
-    for title in filter(None, (sci_name, com_name)):      # Wikidata item of the article
+    for title in filter(None, (sci_name, com_name)):
         try:
             data = web.get_json(f"https://{web.WIKI_LANG}.wikipedia.org/w/api.php?action=query"
                                 "&format=json&prop=pageprops&ppprop=wikibase_item&redirects=1"
@@ -96,6 +103,7 @@ def from_wikidata(com_name, sci_name=None):
     if not qid:
         return {}
 
+    # Conservation status, then up the family tree to the family and order
     out = {"source": "wikidata"}
     try:
         item = entity(qid)
@@ -104,7 +112,7 @@ def from_wikidata(com_name, sci_name=None):
             label = entity(status).get("labels", {}).get("en", {}).get("value", "")
             if label:
                 out["conservation"] = label.title()
-        for _ in range(8):                              # climb up to the family and order
+        for _ in range(8):
             parent = claim(item, "P171")
             if not parent:
                 break
@@ -124,6 +132,7 @@ def from_wikidata(com_name, sci_name=None):
 
 
 def entity(qid):
+    """A Wikidata item."""
     return web.get_json("https://www.wikidata.org/w/api.php?action=wbgetentities&format=json"
                         "&props=claims|labels&languages=en&ids=" + qid)["entities"][qid]
 

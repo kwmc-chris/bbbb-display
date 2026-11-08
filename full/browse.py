@@ -1,13 +1,11 @@
 """Browse pages for the full display: one page per bird, most recent first.
 
-Photo top left; names, order, family and when it was heard top right; five
-tiles (habitat, food, nesting, behaviour, UK status) with a description below,
-and a QR code linking to its Wikipedia article. Birds not in birdfacts.json get
-a longer description and one conservation tile instead.
+Photo, names and times heard at the top; five tiles (habitat, food, nesting,
+behaviour, UK status); description and QR code to Wikipedia below. Birds not in
+birdfacts.json get one conservation tile and a longer description.
 
-Tile icons are drawn here, unless you put your own PNG in full/icons/
-(e.g. icons/trees.png: dark shapes on white or transparent, square).
-Check them all with:  .venv/bin/python -c "from full import browse; browse.icon_sheet('icons.png')"
+Tile icons are drawn, or use your own PNG in full/icons/ (e.g. icons/trees.png).
+Icon sheet:  .venv/bin/python -c "from full import browse; browse.icon_sheet('icons.png')"
 """
 
 import math
@@ -21,11 +19,12 @@ from common import birdnet, screen
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# --- Settings (change any of these under [browse] in settings.toml) ---
 RECENT_SPECIES_LIMIT = 30         # birds in the browse list
 TIMES_SHOWN = 10                  # detection times listed
-DESCRIPTION_LINES = 4             # description under the tiles (fewer if there's no room)
-FALLBACK_DESCRIPTION_LINES = 5    # description for birds not in birdfacts.json
-QR_SIZES = (3, 2)                 # pixels per QR square, biggest that fits is used
+DESCRIPTION_LINES = 4             # description lines under the tiles
+FALLBACK_DESCRIPTION_LINES = 5    # description lines for birds not in birdfacts.json
+QR_SIZES = (3, 2)                 # pixels per QR square, largest that fits
 QR_GAP = 12                       # space between description and QR code
 
 PAGE_MARGIN = 14
@@ -54,16 +53,18 @@ TILE_COLOURS = {
     "habitat": (0, 0, 255),
     "food": (0, 255, 0),
     "nesting": (255, 255, 0),
-    "behavior": (255, 128, 0),    # orange: speckled, as there's no orange ink
+    "behavior": (255, 128, 0),    # orange (speckled)
 }
-ICON_COLOURS = {                  # black on yellow, where white would be too faint
+ICON_COLOURS = {                  # icon colour on each tile
     "habitat": COLOURS["white"], "food": COLOURS["white"],
     "nesting": COLOURS["black"], "behavior": COLOURS["white"],
 }
 ICON_DIR = os.path.join(HERE, "icons")
-ICON_MIN_OPACITY = 128            # a pixel of your icon counts if at least this opaque
+ICON_MIN_OPACITY = 128            # your icons: a pixel counts if at least this opaque
 ICON_MAX_BRIGHTNESS = 128         # ...and at most this bright (0-255)
 
+
+# --- Helpers ---
 
 def _font(key):
     return screen.font(*FONTS[key])
@@ -116,7 +117,7 @@ def qr_images(text):
     try:
         import qrcode
     except ImportError:
-        return []                 # install.sh installs it
+        return []
     qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=0)
     qr.add_data(text)
     qr.make(fit=True)
@@ -138,9 +139,8 @@ def place_qr(canvas, images, right, top, max_bottom):
 
 
 # --- Icons ---
-# Each icon is drawing commands on a 100x100 grid ((0,0) top left). fill=255
-# draws, fill=0 cuts a hole. Drawn at 400x400, shrunk, then made pure on/off so
-# the edges stay crisp. A PNG in ICON_DIR with the icon's name replaces it.
+# Each icon is drawing commands on a 100x100 grid: fill=255 draws, fill=0 cuts a hole.
+# A PNG in ICON_DIR with the icon's name replaces the drawn one.
 
 def _bird(d, x, y, s=1.0, fill=255):
     """Perched bird facing right; (x, y) = body centre, s = scale."""
@@ -349,7 +349,7 @@ def load_custom_icon(name, size):
         square.paste(img, ((side - img.width) // 2, (side - img.height) // 2))
         img = square
 
-    # Ink = opaque enough AND dark enough (treats transparent and white alike)
+    # Ink = opaque enough and dark enough
     opacity = img.getchannel("A").point(lambda a: 255 if a >= ICON_MIN_OPACITY else 0)
     darkness = img.convert("L").point(lambda v: 255 if v <= ICON_MAX_BRIGHTNESS else 0)
     ink = Image.composite(darkness, Image.new("L", img.size, 0), opacity)
@@ -402,7 +402,7 @@ def draw_tile(canvas, d, centre_x, top, bg, label, value_lines,
     Returns the y just below the last line drawn."""
     t = TILE_SIZE
     box = (int(centre_x - t / 2), top, int(centre_x + t / 2), top + t)
-    outline = COLOURS["black"] if bg == COLOURS["white"] else None    # keep white tiles visible
+    outline = COLOURS["black"] if bg == COLOURS["white"] else None    # outline on white tiles
     d.rounded_rectangle(box, radius=8, fill=bg, outline=outline)
 
     if glyph is not None:
@@ -436,7 +436,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
     d = ImageDraw.Draw(canvas)
     d.fontmode = "1"
 
-    # --- Photo and credit (top left) ---
+    # Photo and credit (top left)
     k = min(width / 600, height / 400)        # bigger photo on bigger screens
     pw, ph = int(PHOTO_SIZE[0] * k), int(PHOTO_SIZE[1] * k)
     x_text = m
@@ -452,7 +452,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
         except Exception:
             pass
 
-    # --- Names, order, family (top right) ---
+    # Names, order, family (top right)
     max_w = width - x_text - m
     y = m
     for line in screen.wrap(d, sp["Com_Name"], _font("name"), max_w)[:2]:
@@ -474,7 +474,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
             y += 19
     y += 6
 
-    # --- When heard, with the page counter on the right of the second line ---
+    # When heard, and the page counter
     total = sp["total"]
     total_text = f"{total} detection{'s' if total != 1 else ''} in total"
     if times_today:
@@ -503,7 +503,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                font=_font("small"), fill=COLOURS["black"])
         y += 18
 
-    # --- Tiles: 5 equal columns, below the photo and text ---
+    # Tiles: 5 equal columns
     tile_top = max(m + ph + 30, min(y + 10, int(232 * k)))
     col_w = (width - 2 * m) / 5
 
@@ -511,7 +511,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
         return m + col_w * i + col_w / 2
 
     line_h = 18                               # description line height
-    qr_bottom = height - 8                    # QR may sit a little lower than text
+    qr_bottom = height - 8                    # lowest edge for the QR code
 
     if details.get("source") == "file":
         bottom = tile_top
@@ -531,7 +531,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
             code_font=_font("code_small") if len(code) > 3 else _font("code"))
         bottom = max(bottom, status_bottom)
 
-        # QR code under the status tile (right); description fills the rest
+        # QR code under the status tile; description beside it
         qr_w = place_qr(canvas, qr, width - m, status_bottom + 8, qr_bottom)
         text_w = width - 2 * m - (qr_w + QR_GAP if qr_w else 0)
         if description:
@@ -542,7 +542,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                 d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
                 ty += line_h
     else:
-        # Not in birdfacts.json: global status tile and QR code right, description left
+        # Not in birdfacts.json: conservation tile and QR code right, description left
         right_bottom = tile_top
         if details.get("conservation"):
             code, bg, fg = iucn_tile(details["conservation"])
@@ -553,7 +553,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
         place_qr(canvas, qr, width - m, right_bottom, qr_bottom)
         ty = tile_top
         if description:
-            room = (height - m - reserve_bottom - ty - 26) // 19     # leave room for the note
+            room = (height - m - reserve_bottom - ty - 26) // 19     # room for the note below
             for line in _wrap_limit(d, description, _font("body"), col_w * 4 - 10,
                                     min(FALLBACK_DESCRIPTION_LINES, room)):
                 d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
@@ -562,6 +562,8 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                font=_font("small"), fill=COLOURS["blue"])
 
     return canvas
+
+# --- Icon sheet (all icons on their tiles) ---
 
 def icon_sheet(path):
     """Save all icons on their tiles, marked "file" (yours) or "drawn"."""

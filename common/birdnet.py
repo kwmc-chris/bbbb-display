@@ -1,4 +1,4 @@
-"""Reads BirdNET-Pi: its database of detections (read-only) and its settings file."""
+"""BirdNET-Pi's database of detections (read-only) and its settings file."""
 
 import os
 import sqlite3
@@ -8,7 +8,7 @@ CONF_FILES = ["/etc/birdnet/birdnet.conf", os.path.expanduser("~/BirdNET-Pi/bird
 
 
 def query(sql, *params):
-    """Rows from the detections database. Each row works like a dict."""
+    """Rows from the database; each row works like a dict."""
     if not os.path.exists(DATABASE):
         raise FileNotFoundError(f"BirdNET-Pi's database isn't at {DATABASE}")
     con = sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True, timeout=10)
@@ -26,7 +26,7 @@ def latest():
 
 
 def sci_name(com_name):
-    """Scientific name for a bird BirdNET-Pi has heard, or None."""
+    """Scientific name of a bird in the database, or None."""
     try:
         rows = query("SELECT Sci_Name FROM detections WHERE Com_Name = ? LIMIT 1", com_name)
     except (OSError, sqlite3.Error):
@@ -35,7 +35,7 @@ def sci_name(com_name):
 
 
 def config():
-    """BirdNET-Pi's settings (birdnet.conf) as a dict; {} if not found."""
+    """BirdNET-Pi's settings (birdnet.conf) as a dict, or {}."""
     for path in CONF_FILES:
         try:
             with open(path, encoding="utf-8") as f:

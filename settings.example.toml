@@ -5,8 +5,7 @@
 
 display = "full"            # "full" or "simple"
 nightly_update = true       # get the latest version from GitHub every night at 3am
-debug = false               # true: redraw as fast as possible for testing - checks every
-                            # second and doesn't wait for the screen to finish a refresh
+debug = false               # true: check every second and redraw for every new bird
 
 
 [full]
@@ -20,8 +19,7 @@ autoplay_song = false       # play each new bird's song (needs a speaker)
 
 
 [sound]
-speaker = "auto"            # "auto" (USB speaker if plugged in, else headphone socket),
-                            # "headphones", or "none" for no sound
+speaker = "auto"            # "auto" (the USB speaker) or "none" for no sound
                             # Check it with:  .venv/bin/python start.py --test-sound
 
 
@@ -33,11 +31,11 @@ enabled = true
 # Your own buttons go between a free pin (e.g. 4, 12, 13, 26) and ground.
 # Don't use 2, 3, 8, 9, 10, 11, 17, 22 or 27 - the screen needs them.
 # The simple display only uses "song" (and the shutdown buttons).
-pins = { browse = 5, live = 6, chart = 16, song = 24 }
+pins = { browse = 5, live = 6, song = 24 }
 shutdown = ["browse", "song"]    # hold these two together for 3 seconds to shut down
 
 
 # Any other setting at the top of these files can be changed here too, in
-# lower case: full/display.py [full], full/browse.py [browse], full/chart.py
-# [chart], simple/display.py [simple], simple/poems.py [poems],
+# lower case: full/display.py [full], full/browse.py [browse],
+# simple/display.py [simple], simple/poems.py [poems],
 # common/buttons.py [buttons], common/birdsong.py [sound], common/birdnet.py [birdnet]

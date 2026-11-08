@@ -1,8 +1,7 @@
-"""Finds a verse about a bird in PoetryDB (classic public-domain poems).
+"""A verse about a bird from PoetryDB (public-domain poems), a different one each time.
+Searches are saved in cache/poems/.
 
-    find_verse(bird, words) -> {"lines", "title", "author"} or None
-
-Search results are saved in cache/poems/. A different verse is picked each time.
+    find_verse(bird, words)   {"lines", "title", "author"}, or None
 Test:  .venv/bin/python -m simple.poems robin redbreast
 """
 
@@ -15,14 +14,16 @@ import urllib.parse
 from common import CACHE, web
 
 FOLDER = os.path.join(CACHE, "poems")
+
+# --- Settings (change any of these under [poems] in settings.toml) ---
 MAX_LINES = 4               # longest verse shown
 AVOID_REPEATS = 5           # don't reuse a bird's last 5 verses
 FALLBACK_WORDS = ["bird", "birds"]
-EXCLUDE = ["robin hood", "robin goodfellow", "round robin"]   # word means something else
+EXCLUDE = ["robin hood", "robin goodfellow", "round robin"]   # lines to skip
 
 
 def search(word):
-    """Poems with `word` in a line. Saved once fetched; [] if offline."""
+    """Poems with `word` in a line (saved once fetched), or []."""
     path = os.path.join(FOLDER, web.slug(word) + ".json")
     poems = web.load_json(path, default=False)
     if poems is False:
@@ -60,8 +61,9 @@ def verses(word):
 
 
 def find_verse(bird, words):
+    """A verse for the bird, not one of its last AVOID_REPEATS, or None."""
     pool = []
-    for word in words:                             # earlier words preferred
+    for word in words:                             # in order, until 3 verses found
         pool += verses(word)
         if len(pool) >= 3:
             break

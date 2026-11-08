@@ -1,15 +1,10 @@
-"""The full display: three screens, changed with the buttons.
-
-    live     the latest bird, with today's totals (redraws when a new bird is heard)
-    browse   a page per bird, most recent first (browse.py)
-    chart    today's birds hour by hour (chart.py)
+"""The full display: the live screen and browse pages, changed with the buttons.
 
 Button jobs (pins are set in settings.toml):
-    browse   first press: the most recent bird, then each press goes one further back
-    live     back to the live screen (it also goes back by itself after a while)
-    chart    today's chart
-    song     play or stop the song of the bird on screen (live or browse; needs a speaker)
-    hold the SHUTDOWN buttons to show "Sleeping since..." and shut down
+    browse   first press: the most recent bird, then one further back each press
+    live     back to the live screen (also happens after BROWSE_TIMEOUT_SECONDS)
+    song     play or stop the song of the bird on screen
+    hold the SHUTDOWN buttons: show "Sleeping since..." and shut down
 """
 
 import os
@@ -20,54 +15,62 @@ from datetime import datetime
 from PIL import Image, ImageDraw, ImageOps
 
 from common import birdnet, birdsong, buttons, log_error, photos, screen
-from full import browse, chart, info
+from full import browse, info
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# Settings - any of these can be changed for one Pi under [full] in settings.toml
-ROTATE = 0                      # 180 if the screen is mounted upside down
+# --- Settings (change any of these under [full] in settings.toml) ---
+ROTATE = 0                      # 0, or 180 if mounted upside down
 SATURATION = 0.5                # photo colour strength, 0-1
 POLL_SECONDS = 30               # how often to check for a new bird
-MIN_REFRESH_SECONDS = 180       # shortest gap between live redraws (a redraw takes ~25 s)
+MIN_REFRESH_SECONDS = 180       # shortest gap between live redraws
 BROWSE_TIMEOUT_SECONDS = 300    # back to live after this long without a press
-CHART_STYLE = "drawn"           # "drawn", or "birdnet" for BirdNET-Pi's own chart picture
 SHOW_QR = True                  # QR code to Wikipedia on browse pages
 SHOW_HINTS = True               # button letters and jobs along the bottom
-SLEEP_TEXT = "Sleeping since %H:%M"     # shown after shutting down (%H hour, %M minute)
+SLEEP_TEXT = "Sleeping since %H:%M"
 NO_PHOTO = os.path.join(HERE, "nophoto.jpg")
 
 MARGIN = 16
 LIVE_DESCRIPTION_LINES = 3
-LIVE_RECENT_SPECIES = 4         # "Also heard recently" list length
+LIVE_RECENT_SPECIES = 4         # length of the "Also heard recently" list
 FONTS = {
     "name": ("DejaVuSans-Bold.ttf", 30),
-    "sci": ("DejaVuSans-Oblique.ttf", 18),
-    "description": ("DejaVuSans.ttf", 15),
-    "body": ("DejaVuSans.ttf", 18),
-    "small": ("DejaVuSans.ttf", 16),
+    "sci": ("DejaVuSans-BoldOblique.ttf", 18),
+    "description": ("DejaVuSans-Bold.ttf", 15),
+    "body": ("DejaVuSans-Bold.ttf", 18),
+    "small": ("DejaVuSans-Bold.ttf", 16),
     "heading": ("DejaVuSans-Bold.ttf", 16),
     "credit": ("DejaVuSans.ttf", 11),
     "hint_key": ("DejaVuSans-Bold.ttf", 11),
     "hint": ("DejaVuSans.ttf", 13),
 }
-HINTS = {                       # (button job, label) shown on each screen
-    "live": [("browse", "browse"), ("chart", "data"), ("song", "birdsong")],
-    "browse": [("browse", "next"), ("live", "live"), ("chart", "data"), ("song", "birdsong")],
-    "chart": [("browse", "browse"), ("live", "live")],
+HINTS = {                       # (button job, label) on each screen
+    "live": [("browse", "browse"), ("song", "birdsong")],
+    "browse": [("browse", "next"), ("live", "live"), ("song", "birdsong")],
 }
 HINT_ROW = 20                   # height kept free for the hints
-COLOURS = {                     # the screen's six inks; other colours come out speckled
+COLOURS = {                     # the screen's six inks
     "black": (0, 0, 0), "white": (255, 255, 255), "red": (255, 0, 0),
     "yellow": (255, 255, 0), "green": (0, 255, 0), "blue": (0, 0, 255),
 }
 
 
+# --- Helpers ---
+
 def font(key):
     return screen.font(*FONTS[key])
 
 
+def fit(d, text, font_spec, width):
+    """The font at its size, or smaller (down to 12), so text fits on one line."""
+    name, size = font_spec
+    while size > 12 and d.textlength(text, font=screen.font(name, size)) > width:
+        size -= 1
+    return screen.font(name, size)
+
+
 def ip_address():
-    """This Pi's address on the local network, or None. (Nothing is sent.)"""
+    """This Pi's address on the local network, or None."""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect(("192.0.2.1", 80))
@@ -84,18 +87,12 @@ def hints(page):
             if buttons.letter(job) and (job != "song" or birdsong.enabled())]
 
 
-def draw_hints(canvas, page, x, y, align="left"):
-    """e.g. [A] browse  [C] data, with (x, y) the top left (or top right)."""
-    items = hints(page)
-    if not items:
-        return
+def draw_hints(canvas, page, x, y):
+    """Button hints, e.g. [A] browse  [D] birdsong, starting at (x, y)."""
     d = ImageDraw.Draw(canvas)
     d.fontmode = "1"
     box, gap = 15, 12
-    total = sum(box + 4 + d.textlength(label, font=font("hint")) + gap for _, label in items) - gap
-    if align == "right":
-        x -= total
-    for key, label in items:
+    for key, label in hints(page):
         d.rounded_rectangle((x, y, x + box, y + box), radius=3, fill=COLOURS["black"])
         d.text((x + (box - d.textlength(key, font=font("hint_key"))) / 2, y + 1), key,
                font=font("hint_key"), fill=COLOURS["white"])
@@ -113,14 +110,16 @@ def render_live(size, photo, credit, det, description, total, species, recent, s
     img = ImageOps.exif_transpose(Image.open(photo)).convert("RGB")
     canvas.paste(ImageOps.fit(img, (half, height), method=Image.LANCZOS), (0, 0))
     d = ImageDraw.Draw(canvas)
-    d.fontmode = "1"                 # no smoothing: crisp text on e-ink
+    d.fontmode = "1"
 
+    # Photo credit along the bottom of the photo
     if credit:
         d.rectangle((0, height - 18, half, height), fill=COLOURS["black"])
         d.text((6, height - 15), screen.shorten(d, credit, font("credit"), half - 12),
                font=font("credit"), fill=COLOURS["white"])
 
-    x, y, max_w = half + m, m, half - 2 * m        # y = how far down the text has got
+    # Names (y = how far down the text has got)
+    x, y, max_w = half + m, m, half - 2 * m
     for line in screen.wrap(d, det["Com_Name"], font("name"), max_w)[:2]:
         d.text((x, y), line, font=font("name"), fill=COLOURS["red"])
         y += 36
@@ -131,34 +130,33 @@ def render_live(size, photo, credit, det, description, total, species, recent, s
     d.line((x, y, x + max_w, y), fill=COLOURS["red"], width=3)
     y += 10
 
+    # Description
     if description:
         for line in screen.wrap(d, description, font("description"), max_w)[:LIVE_DESCRIPTION_LINES]:
             d.text((x, y), line, font=font("description"), fill=COLOURS["black"])
             y += 19
         y += 8
 
+    # When heard, and today's totals (smaller if needed to fit on one line)
     heard = f"Heard at {det['Time'][:5]}  •  {round(float(det['Confidence']) * 100)}% sure"
-    for line in screen.wrap(d, heard, font("body"), max_w):
-        d.text((x, y), line, font=font("body"), fill=COLOURS["black"])
-        y += 24
     today = f"Today: {total} detections, {species} species"
-    f_today = font("body") if d.textlength(today, font=font("body")) <= max_w else font("small")
-    for line in screen.wrap(d, today, f_today, max_w):
-        d.text((x, y), line, font=f_today, fill=COLOURS["blue"])
+    for text, colour in ((heard, COLOURS["black"]), (today, COLOURS["blue"])):
+        d.text((x, y), text, font=fit(d, text, FONTS["body"], max_w), fill=colour)
         y += 24
     y += 6
 
+    # Other birds heard recently
     others = [n for n in recent if n != det["Com_Name"]][:LIVE_RECENT_SPECIES]
     if others:
         d.text((x, y), "Also heard recently:", font=font("heading"), fill=COLOURS["black"])
         y += 22
         for name in others:
-            if y + 20 > height - m - 22 - HINT_ROW:      # keep clear of the hints and footer
+            if y + 20 > height - m - 22 - HINT_ROW:
                 break
             d.text((x + 8, y), f"• {name}", font=font("small"), fill=COLOURS["black"])
             y += 21
 
-    # Footer: IP address on the left, time of this update (or "Sleeping since") on the right
+    # Footer: IP address left, update time (or "Sleeping since") right
     footer_y = height - m - 16
     if sleeping:
         status, colour = sleeping.strftime(SLEEP_TEXT), COLOURS["red"]
@@ -174,7 +172,7 @@ def render_live(size, photo, credit, det, description, total, species, recent, s
 
 
 def show_live(scr, sleeping=None):
-    """Draw the live screen. Returns what was shown (date, time, bird), or None."""
+    """Draw the live screen. Returns (date, time, bird) shown, or None."""
     det = birdnet.latest()
     if det is None:
         print("No birds in the database yet.")
@@ -193,9 +191,10 @@ def show_live(scr, sleeping=None):
     return (det["Date"], det["Time"], det["Com_Name"])
 
 
-# --- Browse and chart screens ---
+# --- Browse page ---
 
 def show_page(scr, species, index):
+    """Draw the browse page for species[index]."""
     sp = species[index]
     times = browse.times_heard(sp["Com_Name"], datetime.now().strftime("%Y-%m-%d"))
     details = info.details(sp["Com_Name"], sp["Sci_Name"])
@@ -212,20 +211,11 @@ def show_page(scr, species, index):
     scr.show(canvas, ROTATE, SATURATION)
 
 
-def show_chart(scr):
-    canvas = chart.make_chart(scr.size, CHART_STYLE)
-    m = chart.CHART_MARGIN
-    draw_hints(canvas, "chart", canvas.width - m, canvas.height - m - 15, align="right")
-    print("Showing today's chart - updating the screen")
-    scr.show(canvas, ROTATE, SATURATION)
-
-
 # --- Running ---
 
 def run(scr, args):
     """args from start.py: once, bird, page, preview."""
-    if args.page == "chart":
-        return show_chart(scr)
+    # One picture, then stop
     if args.page == "sleep":
         return show_live(scr, sleeping=datetime.now())
     if args.page == "browse" or args.bird:
@@ -236,6 +226,7 @@ def run(scr, args):
     if args.once or args.preview:
         return show_live(scr)
 
+    # Buttons
     global SHOW_HINTS
     btns = None
     if buttons.ENABLED:
@@ -246,57 +237,55 @@ def run(scr, args):
             print(f"Buttons not available, so the live screen only ({e})")
             SHOW_HINTS = False
 
-    page = "live"                 # "live", "browse" or "chart"
-    shown = None                  # bird on the live screen
+    page = "live"                 # "live" or "browse"
+    shown = None                  # (date, time, bird) on the live screen
     last_draw = last_press = 0.0
     species, index = [], 0
 
     print("Watching for new birds")
     first = True
     while True:
-        if first:                 # draw the live screen straight away
+        # Wait for a button press or POLL_SECONDS (no wait the first time)
+        if first:
             presses, first = [], False
         else:
             presses = btns.wait(POLL_SECONDS) if btns else (time.sleep(POLL_SECONDS) or [])
         try:
+            # Shutdown buttons held: sleeping screen, then shut down
             if btns and btns.shutdown_held(presses):
                 birdsong.stop()
                 print("Shutdown buttons held - showing the sleeping screen, then shutting down")
                 show_live(scr, sleeping=datetime.now())
-                scr.finish()          # let the sleeping screen finish drawing first
                 if buttons.shutdown():
                     return
-                page, shown, last_draw = "live", None, 0.0       # refused: carry on
+                page, shown, last_draw = "live", None, 0.0
                 continue
 
-            if "chart" in presses:
-                birdsong.stop()
-                page, last_press = "chart", time.time()
-                show_chart(scr)
-                continue
-
+            # Live button
             if "live" in presses and page != "live":
                 birdsong.stop()
                 page = "live"
                 shown, last_draw = show_live(scr), time.time()
-                btns.clear()          # ignore presses made during the redraw
+                btns.clear()
                 continue
 
+            # Browse button: most recent bird first, then one further back each press
             steps = presses.count("browse")
             if steps:
                 birdsong.stop()
-                if page != "browse":  # first press: the most recent bird
+                if page != "browse":
                     species, index, page = browse.recent_species(), 0, "browse"
                     steps -= 1
                 if species:
-                    index = (index + steps) % len(species)      # back to the start after the last
-                    if "song" in presses:                       # start the song before the slow redraw
+                    index = (index + steps) % len(species)
+                    if "song" in presses:
                         birdsong.toggle(species[index]["Com_Name"])
                     show_page(scr, species, index)
                 last_press = time.time()
                 continue
 
-            if "song" in presses:      # the bird on screen: browse page, or the live screen
+            # Song button: the bird on screen
+            if "song" in presses:
                 if page == "browse" and species:
                     birdsong.toggle(species[index]["Com_Name"])
                     last_press = time.time()
@@ -304,6 +293,7 @@ def run(scr, args):
                     birdsong.toggle(shown[2])
                 continue
 
+            # Browsing: back to live after BROWSE_TIMEOUT_SECONDS without a press
             if page != "live":
                 if time.time() - last_press >= BROWSE_TIMEOUT_SECONDS:
                     print("No presses for a while - back to the live screen")
@@ -312,6 +302,7 @@ def run(scr, args):
                     shown, last_draw = show_live(scr), time.time()
                 continue
 
+            # Live: redraw for a new bird, at most every MIN_REFRESH_SECONDS
             det = birdnet.latest()
             if det and (det["Date"], det["Time"], det["Com_Name"]) != shown \
                     and time.time() - last_draw >= MIN_REFRESH_SECONDS:

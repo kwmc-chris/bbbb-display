@@ -1,4 +1,4 @@
-"""Web lookups: Wikipedia, Wikimedia Commons, and saving results."""
+"""Web lookups (Wikipedia, Wikimedia Commons) and saved files."""
 
 import json
 import os
@@ -7,10 +7,12 @@ import urllib.parse
 import urllib.request
 from html import unescape
 
-USER_AGENT = "bbbb-display/1.0 (Raspberry Pi bird display)"   # some sites block Python's default
+USER_AGENT = "bbbb-display/1.0 (Raspberry Pi bird display)"
 TIMEOUT = 15            # seconds per request
 WIKI_LANG = "en"
 
+
+# --- Downloads ---
 
 def get(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -22,7 +24,10 @@ def get_json(url):
     return json.loads(get(url).decode("utf-8", errors="replace"))
 
 
+# --- Saved files ---
+
 def load_json(path, default=None):
+    """Contents of a JSON file, or default ({}) if it's missing or damaged."""
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
@@ -42,22 +47,25 @@ def slug(name):
 
 
 def strip_tags(text):
+    """Text without HTML tags."""
     return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", "", text or ""))).strip()
 
+
+# --- Wikipedia and Wikimedia Commons ---
 
 _summaries = {}
 
 
 def wiki_summary(*titles):
-    """Wikipedia's summary of the first title that has an article, or None.
-    Has "extract" (opening text), "pageid" and "thumbnail" (main photo)."""
+    """Wikipedia's summary of the first title with an article, or None.
+    Includes "extract" (opening text), "pageid" and "thumbnail" (main photo)."""
     for title in filter(None, titles):
         if title not in _summaries:
             try:
                 data = get_json(f"https://{WIKI_LANG}.wikipedia.org/api/rest_v1/page/summary/"
                                 + urllib.parse.quote(title.replace(" ", "_")))
             except Exception:
-                continue                     # not found, or offline
+                continue
             _summaries[title] = data if data.get("type") == "standard" else None
         if _summaries[title]:
             return _summaries[title]
@@ -65,7 +73,7 @@ def wiki_summary(*titles):
 
 
 def commons_credit(filename):
-    """"Artist / Wikimedia Commons (licence)" for a file on Wikimedia Commons."""
+    """Credit for a Commons file: "Artist / Wikimedia Commons (licence)"."""
     try:
         data = get_json("https://commons.wikimedia.org/w/api.php?action=query&format=json"
                         "&prop=imageinfo&iiprop=extmetadata&titles=File:"

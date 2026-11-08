@@ -1,9 +1,8 @@
-"""The simple display, in portrait: the latest bird's everyday name at the top
-(Robin, not European Robin), its whole photo across the width, and a verse
-from a classic poem that mentions it underneath - a different verse each time.
+"""The simple display, in portrait: the latest bird's everyday name (Robin, not
+European Robin), its photo across the width, and a verse from a classic poem
+that mentions it - a different verse each time.
 
-Buttons (optional): "song" plays or stops the bird's song; hold the SHUTDOWN
-buttons to shut down.
+Buttons: "song" plays or stops the bird's song; hold the SHUTDOWN buttons to shut down.
 """
 
 import json
@@ -18,13 +17,13 @@ from simple import poems
 HERE = os.path.dirname(os.path.abspath(__file__))
 NAMES_FILE = os.path.join(HERE, "birdnames.json")    # BirdNET name -> name shown + poem words
 
-# Settings - any of these can be changed for one Pi under [simple] in settings.toml
-ROTATE = 90                 # 90 or 270, depending which way up the screen is mounted
+# --- Settings (change any of these under [simple] in settings.toml) ---
+ROTATE = 90                 # 90 or 270, depending which way up the screen is
 SATURATION = 0.5            # photo colour strength, 0-1
 POLL_SECONDS = 30           # how often to check for a new bird
-MIN_REFRESH_SECONDS = 180   # shortest gap between redraws (a redraw takes ~25 s)
-AUTOPLAY_SONG = False       # play each new bird's song (needs a speaker)
-PHOTO_MAX_SHARE = 0.6       # a tall photo may take up to this much of the screen height
+MIN_REFRESH_SECONDS = 180   # shortest gap between redraws
+AUTOPLAY_SONG = False       # play each new bird's song
+PHOTO_MAX_SHARE = 0.6       # most of the screen height a tall photo may take
 MARGIN = 16
 NAME_FONT = "DejaVuSans-Bold.ttf"
 VERSE_FONT = "DejaVuSans-Bold.ttf"
@@ -35,8 +34,8 @@ BLACK, WHITE = (0, 0, 0), (255, 255, 255)
 
 
 def bird_names(com_name):
-    """(name to show, words to search poems for). Birds not in birdnames.json
-    lose words like "European" and are searched for by their last word."""
+    """(name to show, words to search poems for), from birdnames.json.
+    Other birds lose words like "European" and are searched by their last word."""
     try:
         with open(NAMES_FILE, encoding="utf-8") as f:
             entry = json.load(f).get(com_name)
@@ -63,14 +62,13 @@ def layout_verse(d, verse_lines, size, width):
 
 
 def render(size, name, photo, credit, verse):
-    """size = (width, height) in portrait. The name at the top, then the whole
-    photo across the width, then the verse underneath."""
+    """The screen picture; size = (width, height) in portrait."""
     w, h = size
-    k = w / 400                     # text sizes grow on bigger screens
+    k = w / 400                     # text size scale for the screen size
     m = MARGIN
     img = Image.new("RGB", size, WHITE)
     d = ImageDraw.Draw(img)
-    d.fontmode = "1"                # crisp text on e-ink
+    d.fontmode = "1"
 
     # Name at the top, smaller if it's long
     for name_size in range(int(40 * k), int(22 * k), -2):
@@ -78,16 +76,16 @@ def render(size, name, photo, credit, verse):
         if d.textlength(name, font=f) <= w - 2 * m:
             break
     d.text((m, m - name_size // 6), screen.shorten(d, name, f, w - 2 * m), font=f, fill=BLACK)
-    y = m + name_size + 10          # y = how far down the screen we've got
+    y = m + name_size + 10          # y = how far down the screen
 
-    # Photo across the full width. Only a tall photo gets trimmed (top and bottom).
+    # Photo across the full width (a tall photo is trimmed top and bottom)
     if photo:
         try:
             pic = ImageOps.exif_transpose(Image.open(photo)).convert("RGB")
             photo_h = min(round(w * pic.height / pic.width), int(h * PHOTO_MAX_SHARE))
             img.paste(ImageOps.fit(pic, (w, photo_h)), (0, y))
             y += photo_h
-        except Exception as e:      # damaged file: carry on without it
+        except Exception as e:
             print(f"Couldn't use photo {photo}: {e}")
 
     # Photo credit, small, just under the photo on the right
@@ -100,8 +98,7 @@ def render(size, name, photo, credit, verse):
     if not verse:
         return img
 
-    # Verse in the space left: the biggest size that fits, preferring one where
-    # no line has to wrap. Author and title share one line under it.
+    # Verse: the largest size that fits, without wrapping lines if possible; author and title below
     y += 12
     text_w = w - 2 * m
     f_source = screen.font(SMALL_FONT, int(13 * k))
@@ -140,12 +137,14 @@ def same(a, b):
 
 def run(scr, args):
     """args from start.py: once, bird, page, preview."""
+    # One picture, then stop
     if args.page:
         print("--page is only for the full display")
         return
     if args.bird:
         return show_bird(scr, args.bird, birdnet.sci_name(args.bird))
 
+    # Buttons
     btns = None
     if buttons.ENABLED and not (args.once or args.preview):
         try:
@@ -159,10 +158,11 @@ def run(scr, args):
         print("Watching for new birds")
     shown, last_draw = None, 0.0        # shown = the detection on screen
     while True:
+        # New bird: show it (at most every MIN_REFRESH_SECONDS)
         try:
             det = birdnet.latest()
             if det and not same(det, shown) and time.time() - last_draw >= MIN_REFRESH_SECONDS:
-                if AUTOPLAY_SONG:       # start the song before the slow redraw
+                if AUTOPLAY_SONG:
                     birdsong.play(det["Com_Name"])
                 show_bird(scr, det["Com_Name"], det["Sci_Name"])
                 shown, last_draw = det, time.time()
@@ -173,6 +173,7 @@ def run(scr, args):
         if args.once or args.preview:
             return
 
+        # Wait for a button press or POLL_SECONDS
         presses = btns.wait(POLL_SECONDS) if btns else (time.sleep(POLL_SECONDS) or [])
         try:
             if btns and btns.shutdown_held(presses):
