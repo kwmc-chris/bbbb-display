@@ -1,0 +1,9 @@
+.venv/
+cache/
+settings.toml
+display.log
+update.log
+__pycache__/
+*.pyc
+/*.png
+.DS_Store
