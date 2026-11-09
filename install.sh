@@ -1,33 +1,30 @@
 #!/bin/bash
-# First-time setup on a new Raspberry Pi. Run once, without sudo: bash install.sh
-# After this, update.sh keeps it up to date.
+# First-time setup on a new Pi. Run without sudo: bash install.sh
 
-SERVICE=bbbb-display
-UPDATE_TIME="0 3 * * *"          # nightly update at 3am (minute hour * * *)
-
+# set working folder and check normal user, not sudo
 cd "$(dirname "$0")" || exit 1
 DIR="$(pwd)"
 [ "$(id -u)" -ne 0 ] || { echo "Run without sudo: bash install.sh"; exit 1; }
 
-# System packages
+# install system packages
 sudo apt-get update -qq &&
 sudo apt-get install -y -qq python3-venv python3-dev build-essential python3-numpy python3-pil \
     fonts-dejavu-core fonts-dejavu-extra ffmpeg alsa-utils || exit 1
 
-# Screen connection: SPI, I2C and the Inky's spi0-0cs setting
+# Screen connections - SPI, I2C and special Inky setting
 sudo raspi-config nonint do_spi 0
 sudo raspi-config nonint do_i2c 0
 printf '[all]\ndtoverlay=spi0-0cs\n' | sudo tee -a /boot/firmware/config.txt > /dev/null
 
-# Python packages
+# install python packages
 python3 -m venv --system-site-packages .venv
 .venv/bin/pip install --quiet -r requirements.txt || exit 1
 
-# Settings (an existing settings.toml is kept)
+# Check no existing and copy settings file
 [ -f settings.toml ] || cp settings.example.toml settings.toml
 
 # Start at boot
-sudo tee /etc/systemd/system/$SERVICE.service > /dev/null << EOF
+sudo tee /etc/systemd/system/bbbb-display.service > /dev/null << EOF
 [Unit]
 Description=Bird display
 After=network-online.target
@@ -46,10 +43,10 @@ StandardError=append:$DIR/display.log
 [Install]
 WantedBy=multi-user.target
 EOF
-sudo systemctl enable --quiet $SERVICE
+sudo systemctl enable --quiet bbbb-display
 
-# Nightly update
-echo "$UPDATE_TIME $(id -un) bash $DIR/update.sh" | sudo tee /etc/cron.d/$SERVICE > /dev/null
-sudo chmod 644 /etc/cron.d/$SERVICE
+# Nightly update at 3am (minute hour x x x)
+echo "0 3 * * * $(id -un) bash $DIR/update.sh" | sudo tee /etc/cron.d/bbbb-display > /dev/null
+sudo chmod 644 /etc/cron.d/bbbb-display
 
 echo "Done. Choose the display in settings.toml (nano settings.toml), then: sudo reboot"

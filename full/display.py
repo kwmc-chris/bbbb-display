@@ -25,7 +25,6 @@ POLL_SECONDS = 30               # how often to check for a new bird
 MIN_REFRESH_SECONDS = 180       # shortest gap between live redraws
 BROWSE_TIMEOUT_SECONDS = 300    # back to live after this long without a press
 SHOW_QR = True                  # QR code to Wikipedia on browse pages
-SHOW_HINTS = True               # button letters and jobs along the bottom
 NO_PHOTO = os.path.join(HERE, "nophoto.jpg")
 
 MARGIN = 16
@@ -67,12 +66,15 @@ def fit(d, text, font_spec, width, smallest=12):
     return screen.font(name, size)
 
 
+_has_buttons = False            # set by run() once the buttons are found
+
+
 def hints(page):
     """[(letter, label)] for the buttons that work on this page."""
-    if not SHOW_HINTS:
+    if not _has_buttons:
         return []
     return [(buttons.letter(job), label) for job, label in HINTS[page]
-            if buttons.letter(job) and (job != "song" or birdsong.enabled())]
+            if buttons.letter(job) and (job != "song" or birdsong.has_speaker())]
 
 
 def draw_hints(canvas, page, x, y):
@@ -197,29 +199,17 @@ def show_page(scr, species, index):
 
 # --- Running ---
 
-def run(scr, args):
-    """args from start.py: once, bird, page, preview."""
-    # One picture, then stop
-    if args.page == "sleep":
-        return show_live(scr, sleeping=datetime.now())
-    if args.page == "browse" or args.bird:
-        species = [browse.one_species(args.bird)] if args.bird else browse.recent_species()
-        if not species or not species[0]:
-            return print(f"{args.bird or 'No birds'} - not in the database")
-        return show_page(scr, species, 0)
-    if args.once or args.preview:
-        return show_live(scr)
-
+def run(scr):
+    """Show the live screen and new birds, and answer the buttons, until stopped."""
     # Buttons
-    global SHOW_HINTS
+    global _has_buttons
     btns = None
-    if buttons.ENABLED:
-        try:
-            btns = buttons.Buttons()
-            print("Buttons ready: " + ", ".join(f"{job} = GPIO {pin}" for job, pin in buttons.PINS.items()))
-        except Exception as e:
-            print(f"Buttons not available, so the live screen only ({e})")
-            SHOW_HINTS = False
+    try:
+        btns = buttons.Buttons()
+        _has_buttons = True
+        print("Buttons ready: " + ", ".join(f"{job} = GPIO {pin}" for job, pin in buttons.PINS.items()))
+    except Exception as e:
+        print(f"Buttons not available, so the live screen only ({e})")
 
     page = "live"                 # "live" or "browse"
     shown = None                  # (date, time, bird) on the live screen

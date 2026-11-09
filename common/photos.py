@@ -10,7 +10,7 @@ import urllib.parse
 from common import CACHE, ROOT, web
 
 OWN_PHOTOS = os.path.join(ROOT, "birds")
-WIKI_WIDTHS = (960, 1280, 500)     # photo widths to try
+WIKI_WIDTH = 960                   # photo width to download
 
 
 def get_photo(com_name, sci_name=None, *other_names):
@@ -62,8 +62,8 @@ def wikipedia_photo(com_name, sci_name):
     thumb = (page.get("thumbnail") or {}).get("source", "")
     if not thumb:
         return [], None
-    urls = [re.sub(r"/\d+px-", f"/{w}px-", thumb) for w in WIKI_WIDTHS] if "/thumb/" in thumb else []
-    urls.append(thumb)
+    # WIKI_WIDTH wide, or Wikipedia's own size if that fails
+    urls = [re.sub(r"/\d+px-", f"/{WIKI_WIDTH}px-", thumb), thumb] if "/thumb/" in thumb else [thumb]
     # Address form: .../thumb/a/ab/File_name.jpg/960px-File_name.jpg
     parts = urllib.parse.unquote(thumb).split("/")
     filename = parts[-2] if "/thumb/" in thumb else parts[-1]

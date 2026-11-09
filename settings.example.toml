@@ -1,43 +1,21 @@
 # Settings for this Pi.
-# install.sh copies this file to settings.toml, which stays on the Pi and is
-# never changed by updates. After editing settings.toml:
-#     sudo systemctl restart bbbb-display
+# install.sh copies this to settings.toml, which is never changed by updates. 
 
-display = "full"            # "full" or "simple"
-nightly_update = true       # get the latest version from GitHub every night at 3am
-debug = false               # true: check every second and redraw for every new bird
+# After editing settings.toml run 'sudo systemctl restart bbbb-display'
+
+
+display = "full"            # "full" or "simple" for data heavy or poetry
+nightly_update = true       # Update every night at 3am default
+debug = false               # when true checks every second and redraw instantly
 
 
 [full]
-rotate = 0                  # 0, or 180 if the screen is mounted upside down
+rotate = 0                  # 0, or 180 if the screen is upside down
 # show_qr = false           # no QR codes on the browse pages
 # min_refresh_seconds = 180 # shortest gap between redraws
 
+
 [simple]
 rotate = 90                 # 90 or 270, depending which way up the screen is mounted
-autoplay_song = false       # play each new bird's song (needs a speaker)
 # show_footer = false      # no IP address and update time along the bottom
-
-
-[sound]
-speaker = "auto"            # "auto" (the USB speaker) or "none" for no sound
-                            # Check it with:  .venv/bin/python start.py --test-sound
-
-
-[buttons]
-enabled = true
-# GPIO (BCM) pin for each job. Leave a job out to not use it.
-# The Inky's own buttons: A = 5, B = 6, C = 16 (25 on the 13.3"), D = 24.
-# Check them with:  .venv/bin/python start.py --test-buttons
-# Your own buttons go between a free pin (e.g. 4, 12, 13, 26) and ground.
-# Don't use 2, 3, 8, 9, 10, 11, 17, 22 or 27 - the screen needs them.
-# The simple display only uses "song" (and the shutdown buttons).
-pins = { browse = 5, live = 6, song = 24 }
-shutdown = ["browse", "song"]    # hold these two together for 3 seconds to shut down
-
-
-# Any other setting at the top of these files can be changed here too, in
-# lower case: full/display.py [full], full/browse.py [browse],
-# simple/display.py [simple], simple/poems.py [poems],
-# common/buttons.py [buttons], common/birdsong.py [sound], common/birdnet.py [birdnet],
-# common/status.py [status]
+# min_refresh_seconds = 180 # shortest gap between redraws

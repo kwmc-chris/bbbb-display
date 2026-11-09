@@ -1,4 +1,4 @@
-"""A verse about a bird from PoetryDB (public-domain poems), a different one each time.
+"""A verse about a bird from PoetryDB, a different one each time.
 Searches are saved in cache/poems/.
 
     find_verse(bird, words)   {"lines", "title", "author"}, or None
@@ -15,7 +15,7 @@ from common import CACHE, web
 
 FOLDER = os.path.join(CACHE, "poems")
 
-# --- Settings (change any of these under [poems] in settings.toml) ---
+# Settings
 MAX_LINES = 4               # longest verse shown
 AVOID_REPEATS = 5           # don't reuse a bird's last 5 verses
 FALLBACK_WORDS = ["bird", "birds"]

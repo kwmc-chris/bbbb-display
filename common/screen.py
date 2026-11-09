@@ -3,27 +3,18 @@
 from PIL import ImageFont
 
 FONT_DIR = "/usr/share/fonts/truetype/dejavu/"
-PREVIEW_SIZE = (600, 400)       # picture size for --preview
 
 
 class Screen:
-    """The Inky screen, or a picture file with --preview. size is in landscape, e.g. (600, 400)."""
+    """The Inky screen. size is in landscape, e.g. (600, 400)."""
 
-    def __init__(self, preview=None):
-        self.preview = preview
-        if preview:
-            self.inky, self.size = None, PREVIEW_SIZE
-        else:
-            from inky.auto import auto
-            self.inky = auto(ask_user=False, verbose=True)
-            self.size = tuple(self.inky.resolution)
+    def __init__(self):
+        from inky.auto import auto
+        self.inky = auto(ask_user=False, verbose=True)
+        self.size = tuple(self.inky.resolution)
 
     def show(self, img, rotate=0, saturation=0.5):
-        """Draw img on the screen (~25 s), or save it with --preview."""
-        if self.preview:
-            img.save(self.preview)
-            print(f"Saved {self.preview}")
-            return
+        """Draw img on the screen (~25 s)."""
         img = img.rotate(rotate, expand=True)
         if img.size != self.size:
             raise ValueError(f"picture is {img.size}, the screen is {self.size} - check rotate")

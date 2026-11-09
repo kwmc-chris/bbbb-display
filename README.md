@@ -41,25 +41,12 @@ bash install.sh
 ```
 Run this once, on a new Pi. It installs everything, switches on the screen connection, and sets the display to start at boot and update itself at night.
 
-**3. Choose the display** and set anything else this Pi needs (speaker, buttons, screen rotation), then reboot:
+**3. Choose the display** and the screen rotation, then reboot:
 ```
 nano settings.toml
 sudo reboot
 ```
 After changing `settings.toml` later: `sudo systemctl restart bbbb-display`.
-
-**4. Try it by hand** (stop the service first so the screen is free):
-```
-sudo systemctl stop bbbb-display
-.venv/bin/python start.py --once                      # latest bird, then stop
-.venv/bin/python start.py --bird "European Robin"     # any bird
-.venv/bin/python start.py --page browse               # full display: browse or sleep
-.venv/bin/python start.py --test-buttons              # shows each button pressed
-.venv/bin/python start.py --test-sound                # lists sound devices, plays a test beep
-.venv/bin/python start.py                             # keep running (Ctrl+C stops)
-sudo systemctl start bbbb-display
-```
-Add `--preview test.png` to save a picture instead of using the screen (no need to stop the service).
 
 ## Updates
 
@@ -71,25 +58,15 @@ If the update log says a file was "edited on this Pi", put the file back with `g
 
 ## Settings
 
-`settings.toml` has the settings you're most likely to change, with notes. Each `[section]` changes the settings at the top of one file, so you can change any other setting there too, written in lower case:
-
-| Section | File |
-|---|---|
-| `[full]` | `full/display.py` |
-| `[browse]` | `full/browse.py` |
-| `[simple]` `[poems]` | `simple/display.py`, `simple/poems.py` |
-| `[sound]` | `common/birdsong.py` |
-| `[buttons]` | `common/buttons.py` |
-| `[birdnet]` | `common/birdnet.py` (where BirdNET-Pi's database is) |
-| `[status]` | `common/status.py` (the "Updated" and "Sleeping since" wording, how often to check the IP address) |
+`settings.toml` has the settings for this Pi, with notes. `[full]` and `[simple]` can also change any other setting at the top of `full/display.py` or `simple/display.py`, written in lower case. Everything else is set at the top of its own file.
 
 **Debug mode.** `debug = true` (near the top of `settings.toml`) is for testing: the display checks for birds every second and redraws for every new one. `DEBUG_SETTINGS` in `start.py` lists what it changes. Set it back to `false` afterwards.
 
-**Sound.** The song button plays BirdNET-Pi's best recent recording of the bird on screen, if it still has one on disk (BirdNET-Pi deletes old recordings, so some birds have none). With `speaker = "auto"` it uses the USB speaker. A USB device with a mic is never used, so it can't pick the BirdNET mic. A new speaker may start quiet: run `alsamixer`, press F6 to pick it, turn it up, then `sudo alsactl store`. If it isn't working, `--test-sound` shows which device it picks and why, and the log shows any playing error.
+**Sound.** The song button plays BirdNET-Pi's best recent recording of the bird on screen through the USB speaker, if it still has one on disk (BirdNET-Pi deletes old recordings, so some birds have none). A USB device with a mic is never used, so it can't pick the BirdNET mic. A new speaker may start quiet: run `alsamixer`, press F6 to pick it, turn it up, then `sudo alsactl store`. Any playing error is in `display.log`.
 
 **Updated and sleeping.** Both displays show the IP address and when the screen was last updated (e.g. "Updated Mon 18:22") along the bottom. The IP address is checked every 10 minutes, and if it changes (e.g. to "No network") the screen is redrawn. When the Pi shuts down or reboots (the shutdown buttons, `sudo shutdown` or `sudo reboot`), the screen changes to "Sleeping since Mon 18:30" in red first. An e-ink screen keeps its picture without power, so after a power cut it still shows the last update time: if that's old, the Pi is off.
 
-**Buttons.** Each job (browse, live, song) has a GPIO pin. The Inky's own buttons are A = 5, B = 6, C = 16 and D = 24; C isn't used. Your own buttons connect a free pin (e.g. 4, 12, 13 or 26) to ground. Don't use 2, 3, 8, 9, 10, 11, 17, 22 or 27, because the screen needs them. Holding the two `shutdown` buttons for 3 seconds shuts the Pi down safely. Unplug and replug the power to start it again.
+**Buttons.** The Inky's own buttons: A = browse, B = live, D = song (C isn't used); the pins are in `common/buttons.py`. Holding A and D together for 3 seconds shuts the Pi down safely. Unplug and replug the power to start it again.
 
 **Birds.** `common/birdinfo.json` has an entry for each bird, under BirdNET-Pi's name for it:
 ```
@@ -112,4 +89,4 @@ sudo systemctl restart bbbb-display        # restart, e.g. after changing settin
 
 ## Credits
 
-Photos: Wikimedia Commons or Flickr (credit shown on screen). Poems: PoetryDB (public domain). Birdsong: BirdNET-Pi's own recordings. Detections: BirdNET-Pi.
+Photos: Wikimedia Commons (credit shown on screen). Poems: PoetryDB (public domain). Birdsong: BirdNET-Pi's own recordings. Detections: BirdNET-Pi.

@@ -17,7 +17,6 @@ ROTATE = 90                 # 90 or 270, depending which way up the screen is
 SATURATION = 0.5            # photo colour strength, 0-1
 POLL_SECONDS = 30           # how often to check for a new bird
 MIN_REFRESH_SECONDS = 180   # shortest gap between redraws
-AUTOPLAY_SONG = False       # play each new bird's song
 PHOTO_MAX_SHARE = 0.6       # most of the screen height a tall photo may take
 SHOW_FOOTER = True          # IP address and update time along the bottom (always shows "Sleeping since")
 MARGIN = 16
@@ -158,49 +157,34 @@ def same(a, b):
     return b is not None and (a["Date"], a["Time"], a["Com_Name"]) == (b["Date"], b["Time"], b["Com_Name"])
 
 
-def run(scr, args):
-    """args from start.py: once, bird, page, preview."""
-    # One picture, then stop
-    if args.page:
-        print("--page is only for the full display")
-        return
-    if args.bird:
-        return show_bird(scr, args.bird, birdnet.sci_name(args.bird))
-
+def run(scr):
+    """Show each new bird, and answer the buttons, until stopped."""
     # Buttons
     btns = None
-    if buttons.ENABLED and not (args.once or args.preview):
-        try:
-            btns = buttons.Buttons()
-            print("Buttons ready: " + ", ".join(f"{job} = GPIO {pin}" for job, pin in buttons.PINS.items()
-                                                if job == "song" or job in buttons.SHUTDOWN))
-        except Exception as e:
-            print(f"Buttons not available ({e})")
+    try:
+        btns = buttons.Buttons()
+        print("Buttons ready: " + ", ".join(f"{job} = GPIO {pin}" for job, pin in buttons.PINS.items()
+                                            if job == "song" or job in buttons.SHUTDOWN))
+    except Exception as e:
+        print(f"Buttons not available ({e})")
 
-    if not (args.once or args.preview):
-        # Shutdown or reboot: the sleeping screen first
-        status.on_shutdown(lambda since: show_sleeping(scr, since))
-        print("Watching for new birds")
+    # Shutdown or reboot: the sleeping screen first
+    status.on_shutdown(lambda since: show_sleeping(scr, since))
+    print("Watching for new birds")
     shown, last_draw = None, 0.0        # shown = the detection on screen
     while True:
         # New bird: show it (at most every MIN_REFRESH_SECONDS)
         try:
             det = birdnet.latest()
             if det and not same(det, shown) and time.time() - last_draw >= MIN_REFRESH_SECONDS:
-                if AUTOPLAY_SONG:
-                    birdsong.play(det["Com_Name"])
                 show_bird(scr, det["Com_Name"], det["Sci_Name"])
                 shown, last_draw = det, time.time()
-            elif det is None and (args.once or args.preview):
-                print("No birds in the database yet.")
 
             # Redraw if the IP address has changed (checked every IP_CHECK_MINUTES)
             elif SHOW_FOOTER and status.ip_changed():
                 redraw(scr)
         except Exception:
             log_error()
-        if args.once or args.preview:
-            return
 
         # Wait for a button press or POLL_SECONDS
         presses = btns.wait(POLL_SECONDS) if btns else (time.sleep(POLL_SECONDS) or [])

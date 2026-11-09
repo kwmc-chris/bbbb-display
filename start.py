@@ -1,17 +1,6 @@
 #!/usr/bin/env python3
-"""Starts the display chosen in settings.toml.
+"""Starts the display chosen in settings.toml (run by the bbbb-display service)."""
 
-    .venv/bin/python start.py                        keep running (what the service does)
-    .venv/bin/python start.py --once                 show the latest bird, then stop
-    .venv/bin/python start.py --bird "European Robin"   show one bird, then stop
-    .venv/bin/python start.py --page browse          full display: show browse or sleep, then stop
-    .venv/bin/python start.py --test-buttons         print each button pressed
-    .venv/bin/python start.py --test-sound           list sound devices, play a beep
-
-Add --preview test.png to save a picture instead of using the screen.
-"""
-
-import argparse
 import importlib
 import os
 import sys
@@ -21,20 +10,14 @@ from datetime import datetime
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SETTINGS = os.path.join(ROOT, "settings.toml")
 
-# --- settings.toml: each section and the file it changes ---
+# settings.toml sections
 SECTIONS = {
     "full": "full.display",
-    "browse": "full.browse",
     "simple": "simple.display",
-    "poems": "simple.poems",
-    "buttons": "common.buttons",
-    "sound": "common.birdsong",
-    "birdnet": "common.birdnet",
-    "status": "common.status",
 }
 TOP_LEVEL = {"display", "nightly_update", "debug"}
 
-# What  debug = true  changes
+# debug  mode settings
 DEBUG_SETTINGS = {
     "full.display": {"POLL_SECONDS": 1, "MIN_REFRESH_SECONDS": 0},
     "simple.display": {"POLL_SECONDS": 1, "MIN_REFRESH_SECONDS": 0},
@@ -92,33 +75,7 @@ def load_settings():
     return settings
 
 
-def test_buttons():
-    """Print each button pressed until Ctrl+C."""
-    from common import buttons
-    try:
-        b = buttons.Buttons()
-    except Exception as e:
-        sys.exit(f"Buttons not available ({e}). Is the display running? sudo systemctl stop bbbb-display")
-    print("Press a button (Ctrl+C to stop). Pins: "
-          + ", ".join(f"{job} = GPIO {pin}" for job, pin in buttons.PINS.items()))
-    try:
-        while True:
-            for job in b.wait(1):
-                print(f"{job} (GPIO {buttons.PINS[job]})")
-    except KeyboardInterrupt:
-        pass
-
-
 def main():
-    p = argparse.ArgumentParser(description="BirdNET-Pi bird display for the Inky Impression")
-    p.add_argument("--once", action="store_true", help="show the latest bird, then stop")
-    p.add_argument("--bird", metavar="NAME", help='show this bird, e.g. "European Robin", then stop')
-    p.add_argument("--page", choices=["browse", "sleep"], help="full display: show this page, then stop")
-    p.add_argument("--preview", metavar="FILE.png", help="save a picture instead of using the screen")
-    p.add_argument("--test-buttons", action="store_true", help="print each button pressed")
-    p.add_argument("--test-sound", action="store_true", help="list sound devices and play a beep")
-    args = p.parse_args()
-
     sys.stdout = Timestamped(sys.stdout)
     sys.stderr = Timestamped(sys.stderr)
 
@@ -127,19 +84,12 @@ def main():
     if name not in ("full", "simple"):
         sys.exit(f'settings.toml: display = "{name}" - it should be "full" or "simple"')
 
-    if args.test_buttons:
-        return test_buttons()
-    if args.test_sound:
-        from common import birdsong
-        return birdsong.test()
-
     # Run the display
     from common.screen import Screen
     display = importlib.import_module(name + ".display")
-    if not (args.once or args.bird or args.page or args.preview):
-        print(f"===== Starting the {name} display =====")
+    print(f"===== Starting the {name} display =====")
     try:
-        display.run(Screen(args.preview), args)
+        display.run(Screen())
     except KeyboardInterrupt:
         print("Stopped.")
 

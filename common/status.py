@@ -1,5 +1,4 @@
 """The footer along the bottom of both displays, and the sleeping screen.
-
     footer()                    ("IP 192.168.1.20", "Updated Mon 18:22", green)
     ip_changed()                every IP_CHECK_MINUTES: True if the IP address isn't the one on screen
     footer(sleeping=time)       ("", "Sleeping since Mon 18:30", red)
@@ -16,7 +15,7 @@ from datetime import datetime
 
 from common import log_error, web
 
-# --- Settings (change any of these under [status] in settings.toml) ---
+# settings
 UPDATED_TEXT = "Updated %a %H:%M"           # %a = day (Mon), %H:%M = time
 SLEEP_TEXT = "Sleeping since %a %H:%M"
 IP_CHECK_MINUTES = 10                       # how often to check the IP address hasn't changed

@@ -1,5 +1,5 @@
 """Buttons on GPIO pins: the Inky's own A-D buttons, or your own on other pins.
-A button connects its pin to ground (GND). Pins are set under [buttons] in settings.toml.
+A button connects its pin to ground (GND).
 
     b = Buttons()
     b.wait(30)                 jobs pressed, e.g. ["song"], or [] after 30 seconds
@@ -9,19 +9,18 @@ A button connects its pin to ground (GND). Pins are set under [buttons] in setti
 import subprocess
 import time
 
-# --- Settings (change any of these under [buttons] in settings.toml) ---
-ENABLED = True
-PINS = {"browse": 5, "live": 6, "song": 24}     # job: GPIO pin
+# settings
+PINS = {"browse": 5, "live": 6, "song": 24}
 SHUTDOWN = ["browse", "song"]   # hold these together to shut down
 SHUTDOWN_SECONDS = 3
-INKY_LETTERS = {5: "A", 6: "B", 16: "C", 25: "C", 24: "D"}    # the Inky's buttons
+INKY_LETTERS = {5: "A", 6: "B", 16: "C", 24: "D"}    # the Inky's buttons
 DEBOUNCE_SECONDS = 0.3          # ignore repeats of one button within this time
 EXTRA_PRESS_WAIT = 0.6          # after a press, wait this long for more presses
 
 
 def letter(job):
     """The Inky button letter for a job ("A"-"D"), or None."""
-    return INKY_LETTERS.get(PINS.get(job)) if ENABLED else None
+    return INKY_LETTERS.get(PINS.get(job))
 
 
 def shutdown():

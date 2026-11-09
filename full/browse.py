@@ -5,7 +5,6 @@ behaviour, UK status); description and QR code to Wikipedia below. Birds not in
 birdinfo.json get one conservation tile and a longer description.
 
 Tile icons are drawn, or use your own PNG in full/icons/ (e.g. icons/trees.png).
-Icon sheet:  .venv/bin/python -c "from full import browse; browse.icon_sheet('icons.png')"
 """
 
 import math
@@ -19,7 +18,7 @@ from common import birdnet, screen
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# --- Settings (change any of these under [browse] in settings.toml) ---
+# settings
 RECENT_SPECIES_LIMIT = 30         # birds in the browse list
 TIMES_SHOWN = 10                  # detection times listed
 DESCRIPTION_LINES = 4             # description lines under the tiles
@@ -94,14 +93,6 @@ def recent_species():
         "SELECT Com_Name, Sci_Name, MAX(Date || ' ' || Time) AS last_heard, COUNT(*) AS total "
         "FROM detections GROUP BY Com_Name ORDER BY last_heard DESC LIMIT ?",
         RECENT_SPECIES_LIMIT)]
-
-
-def one_species(com_name):
-    """Like a recent_species() row for one bird, or None if it's never been heard."""
-    rows = birdnet.query(
-        "SELECT Com_Name, Sci_Name, MAX(Date || ' ' || Time) AS last_heard, COUNT(*) AS total "
-        "FROM detections WHERE Com_Name = ? GROUP BY Com_Name", com_name)
-    return dict(rows[0]) if rows else None
 
 
 def times_heard(com_name, date):
@@ -562,34 +553,3 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                font=_font("small"), fill=COLOURS["blue"])
 
     return canvas
-
-# --- Icon sheet (all icons on their tiles) ---
-
-def icon_sheet(path):
-    """Save all icons on their tiles, marked "file" (yours) or "drawn"."""
-    category_of = {}
-    for cat, entries in KEYWORDS.items():
-        for name, _ in entries:
-            category_of.setdefault(name, cat)
-    for cat, name in DEFAULT_ICON.items():
-        category_of.setdefault(name, cat)
-
-    names = [n for n in ICONS if n in category_of]
-    per_row, cell_w, cell_h = 6, 110, 110
-    rows = (len(names) + per_row - 1) // per_row
-    sheet = Image.new("RGB", (per_row * cell_w, rows * cell_h), COLOURS["white"])
-    d = ImageDraw.Draw(sheet)
-    d.fontmode = "1"
-    used_files = 0
-    for i, name in enumerate(names):
-        cat = category_of[name]
-        cx = (i % per_row) * cell_w + cell_w // 2
-        top = (i // per_row) * cell_h + 8
-        own = load_custom_icon(name, 64)
-        used_files += 1 if own else 0
-        draw_tile(sheet, d, cx, top, TILE_COLOURS[cat], name, [],
-                  glyph=own or draw_icon(name, 64), glyph_colour=ICON_COLOURS[cat])
-        _centred(d, "file" if own else "drawn", _font("small"), cx, top + TILE_SIZE + 22,
-                 COLOURS["red"] if own else COLOURS["blue"])
-    sheet.save(path)
-    print(f"Saved {path} - {len(names)} icons, {used_files} from {ICON_DIR}")
