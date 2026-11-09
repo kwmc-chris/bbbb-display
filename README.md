@@ -20,7 +20,6 @@ Both can play BirdNET-Pi's own recording of the bird through a USB speaker (the 
 | `simple/` | The simple display: `display.py`, `poems.py` (verses from [PoetryDB](https://poetrydb.org)) |
 | `common/` | Shared by both: BirdNET-Pi's database, photos, birdsong, buttons, the screen, and `birdinfo.json` (names, facts and photo credits for each bird) |
 | `photos/` | A photo of each bird, named by its Wikidata id (e.g. `Q25334.jpg`) |
-| `tools/` | `build_birdinfo.py`: makes `birdinfo.json` and `photos/` from the bird list (run on a Mac, not on a Pi) |
 
 Made on the Pi and not in GitHub: `settings.toml`, `.venv/`, `cache/` (prepared songs and downloaded poems, safe to delete), `display.log`, `update.log`.
 
@@ -64,20 +63,14 @@ If the update log says a file was "edited on this Pi", put the file back with `g
 
 **Debug mode.** `debug = true` (near the top of `settings.toml`) is for testing: the display checks for birds every second and redraws for every new one. `DEBUG_SETTINGS` in `start.py` lists what it changes. Set it back to `false` afterwards.
 
-**Sound.** The song button plays BirdNET-Pi's best recent recording of the bird on screen through the USB speaker, if it still has one on disk (BirdNET-Pi deletes old recordings, so some birds have none). A USB device with a mic is never used, so it can't pick the BirdNET mic. A new speaker may start quiet: run `alsamixer`, press F6 to pick it, turn it up, then `sudo alsactl store`. Any playing error is in `display.log`.
+**Sound.** The song button plays BirdNET-Pi's best recent recording of the bird on screen through the USB speaker, if it still has one on disk (BirdNET-Pi deletes old recordings, so some birds have none). A new speaker may start quiet: run `alsamixer`, press F6 to pick it, turn it up, then `sudo alsactl store`. Any playing error is in `display.log`.
 
-**Updated and sleeping.** Both displays show the IP address and when the screen was last updated (e.g. "Updated Mon 18:22") along the bottom. The IP address is checked every 10 minutes, and if it changes (e.g. to "No network") the screen is redrawn. When the Pi shuts down or reboots (the shutdown buttons, `sudo shutdown` or `sudo reboot`), the screen changes to "Sleeping since Mon 18:30" in red first. An e-ink screen keeps its picture without power, so after a power cut it still shows the last update time: if that's old, the Pi is off.
+**Updated and sleeping.** Both displays show the IP address and when the screen was last updated (e.g. "Updated Mon 18:22") along the bottom. The IP address is checked every 10 minutes, and if it changes (e.g. to "No network") the screen is redrawn. When the Pi shuts down or reboots (the shutdown buttons, or by `sudo shutdown`), the screen changes to "Sleeping since Mon 18:30" in red first. If that's old, the Pi is off without being shutdown
 
 **Buttons.** The Inky's own buttons: A = browse, B = live, D = song (C isn't used); the pins are in `common/buttons.py`. Holding A and D together for 3 seconds shuts the Pi down safely. Unplug and replug the power to start it again.
 
-**Birds.** Each bird's facts, Wikipedia text and photo credit are in `common/birdinfo.json`, under BirdNET-Pi's name for the bird. Its photo is in `photos/`. A Pi never looks these up online. `short_name` and `search` are the simple display's name and poem words. `habitat`, `food`, `nesting`, `behavior` and `uk_status` are the browse page tiles; birds without them get a conservation tile instead. To use your own photo, replace it in the bird data folder's `bird_pics_wikipedia/` and in `photos/`, and change its `photo_credit`.
+**Birds.** Each bird's facts, Wikipedia text and photo credit are in `common/birdinfo.json`, under BirdNET-Pi's name for the bird. Its photo is in `photos/`. `short_name` and `search` are the simple display's name and poem words. `habitat`, `food`, `nesting`, `behavior` and `uk_status` are the browse page tiles; birds without them get a conservation tile instead. To use your own photo, replace it in `photos` folder, and change its `photo_credit`.
 
-**Adding birds.** The bird list (`bristol_birds_with_q.txt`) and the original photos are kept outside this repo. After changing them, run on a Mac, from this folder:
-```
-python3 -m venv ~/bbbb-tools && ~/bbbb-tools/bin/pip install pillow      # first time only
-~/bbbb-tools/bin/python tools/build_birdinfo.py "/path/to/04 Bird data"
-```
-It rebuilds `birdinfo.json` and `photos/` and keeps anything added by hand. It lists any photo it couldn't find on Wikimedia Commons: find the right one and add a line to `photo_sources.txt` in the bird data folder (the bird's Q number, then a link to the photo's Commons page), then run it again. Then commit and push.
 
 ## Useful commands
 
