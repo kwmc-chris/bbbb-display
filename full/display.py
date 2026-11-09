@@ -8,13 +8,12 @@ Button jobs (pins are set in settings.toml):
 """
 
 import os
-import socket
 import time
 from datetime import datetime
 
 from PIL import Image, ImageDraw, ImageOps
 
-from common import birdnet, birdsong, buttons, log_error, photos, screen
+from common import birdnet, birdsong, buttons, log_error, photos, screen, status
 from full import browse, info
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +26,6 @@ MIN_REFRESH_SECONDS = 180       # shortest gap between live redraws
 BROWSE_TIMEOUT_SECONDS = 300    # back to live after this long without a press
 SHOW_QR = True                  # QR code to Wikipedia on browse pages
 SHOW_HINTS = True               # button letters and jobs along the bottom
-SLEEP_TEXT = "Sleeping since %H:%M"
 NO_PHOTO = os.path.join(HERE, "nophoto.jpg")
 
 MARGIN = 16
@@ -61,22 +59,12 @@ def font(key):
     return screen.font(*FONTS[key])
 
 
-def fit(d, text, font_spec, width):
-    """The font at its size, or smaller (down to 12), so text fits on one line."""
+def fit(d, text, font_spec, width, smallest=12):
+    """The font at its size, or smaller (down to smallest), so text fits on one line."""
     name, size = font_spec
-    while size > 12 and d.textlength(text, font=screen.font(name, size)) > width:
+    while size > smallest and d.textlength(text, font=screen.font(name, size)) > width:
         size -= 1
     return screen.font(name, size)
-
-
-def ip_address():
-    """This Pi's address on the local network, or None."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("192.0.2.1", 80))
-            return s.getsockname()[0]
-    except OSError:
-        return None
 
 
 def hints(page):
@@ -158,16 +146,12 @@ def render_live(size, photo, credit, det, description, total, species, recent, s
 
     # Footer: IP address left, update time (or "Sleeping since") right
     footer_y = height - m - 16
-    if sleeping:
-        status, colour = sleeping.strftime(SLEEP_TEXT), COLOURS["red"]
-    else:
-        ip = ip_address()
-        d.text((x, footer_y), f"IP {ip}" if ip else "No network", font=font("small"),
-               fill=COLOURS["black"])
-        status, colour = datetime.now().strftime("Updated %H:%M"), COLOURS["green"]
+    left, right, colour = status.footer(sleeping)
+    f = fit(d, f"{left}   {right}", FONTS["small"], width - m - x, smallest=10)   # smaller if both don't fit
+    d.text((x, footer_y), left, font=f, fill=COLOURS["black"])
+    d.text((width - m - d.textlength(right, font=f), footer_y), right, font=f, fill=colour)
+    if not sleeping:
         draw_hints(canvas, "live", x, footer_y - HINT_ROW - 4)
-    d.text((width - m - d.textlength(status, font=font("small")), footer_y), status,
-           font=font("small"), fill=colour)
     return canvas
 
 
@@ -242,6 +226,9 @@ def run(scr, args):
     last_draw = last_press = 0.0
     species, index = [], 0
 
+    # Shutdown or reboot: the sleeping screen first
+    status.on_shutdown(lambda since: show_live(scr, sleeping=since))
+
     print("Watching for new birds")
     first = True
     while True:
@@ -255,9 +242,10 @@ def run(scr, args):
             if btns and btns.shutdown_held(presses):
                 birdsong.stop()
                 print("Shutdown buttons held - showing the sleeping screen, then shutting down")
-                show_live(scr, sleeping=datetime.now())
+                status.sleep(lambda since: show_live(scr, sleeping=since))
                 if buttons.shutdown():
                     return
+                status.wake()
                 page, shown, last_draw = "live", None, 0.0
                 continue
 
@@ -306,6 +294,10 @@ def run(scr, args):
             det = birdnet.latest()
             if det and (det["Date"], det["Time"], det["Com_Name"]) != shown \
                     and time.time() - last_draw >= MIN_REFRESH_SECONDS:
+                shown, last_draw = show_live(scr), time.time()
+
+            # Live: redraw if the IP address has changed (checked every IP_CHECK_MINUTES)
+            elif status.ip_changed():
                 shown, last_draw = show_live(scr), time.time()
         except Exception:
             log_error()

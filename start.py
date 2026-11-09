@@ -30,6 +30,7 @@ SECTIONS = {
     "buttons": "common.buttons",
     "sound": "common.birdsong",
     "birdnet": "common.birdnet",
+    "status": "common.status",
 }
 TOP_LEVEL = {"display", "nightly_update", "debug"}
 
@@ -38,6 +39,7 @@ DEBUG_SETTINGS = {
     "full.display": {"POLL_SECONDS": 1, "MIN_REFRESH_SECONDS": 0},
     "simple.display": {"POLL_SECONDS": 1, "MIN_REFRESH_SECONDS": 0},
     "common.buttons": {"EXTRA_PRESS_WAIT": 0.1},
+    "common.status": {"IP_CHECK_MINUTES": 0.5},
 }
 
 

@@ -9,7 +9,7 @@ import time
 
 from PIL import Image, ImageDraw, ImageOps
 
-from common import bird_info, birdnet, birdsong, buttons, log_error, photos, screen
+from common import bird_info, birdnet, birdsong, buttons, log_error, photos, screen, status
 from simple import poems
 
 # --- Settings (change any of these under [simple] in settings.toml) ---
@@ -19,6 +19,7 @@ POLL_SECONDS = 30           # how often to check for a new bird
 MIN_REFRESH_SECONDS = 180   # shortest gap between redraws
 AUTOPLAY_SONG = False       # play each new bird's song
 PHOTO_MAX_SHARE = 0.6       # most of the screen height a tall photo may take
+SHOW_FOOTER = True          # IP address and update time along the bottom (always shows "Sleeping since")
 MARGIN = 16
 NAME_FONT = "DejaVuSans-Bold.ttf"
 VERSE_FONT = "DejaVuSans-Bold.ttf"
@@ -49,8 +50,9 @@ def layout_verse(d, verse_lines, size, width):
     return out
 
 
-def render(size, name, photo, credit, verse):
-    """The screen picture; size = (width, height) in portrait."""
+def render(size, name, photo, credit, verse, footer=None):
+    """The screen picture; size = (width, height) in portrait.
+    footer = (left text, right text, right colour) along the bottom, or None."""
     w, h = size
     k = w / 400                     # text size scale for the screen size
     m = MARGIN
@@ -83,6 +85,16 @@ def render(size, name, photo, credit, verse):
         d.text((w - m - d.textlength(credit, font=f), y + 2), credit, font=f, fill=BLACK)
         y += 14
 
+    # Footer: IP address left, update time (or "Sleeping since") right
+    bottom = h - m                  # bottom of the space for the verse
+    if footer:
+        left, right, colour = footer
+        f = screen.font(VERSE_FONT, int(12 * k))
+        footer_y = h - m - int(12 * k)
+        d.text((m, footer_y), left, font=f, fill=BLACK)
+        d.text((w - m - d.textlength(right, font=f), footer_y), right, font=f, fill=colour)
+        bottom = footer_y - 8
+
     if not verse:
         return img
 
@@ -93,7 +105,7 @@ def render(size, name, photo, credit, verse):
     source_h = int(17 * k)
     source = "— " + ", ".join(x for x in (verse["author"], verse["title"]) if x)
     source = screen.shorten(d, source, f_source, text_w)
-    space = h - y - m - 6 - source_h
+    space = bottom - y - 6 - source_h
     sizes = range(int(24 * k), int(12 * k), -1)
     layouts = {s: layout_verse(d, verse["lines"], s, text_w) for s in sizes}
     fits = [s for s in sizes if len(layouts[s]) * int(s * 1.35) <= space] or [sizes[-1]]
@@ -107,13 +119,36 @@ def render(size, name, photo, credit, verse):
     return img
 
 
+_shown = None       # (name, photo, credit, verse) on screen, to redraw as the sleeping screen
+
+
 def show_bird(scr, com_name, sci_name):
+    """Draw a bird with a new verse."""
+    global _shown
     name, words = bird_names(com_name, sci_name)
     photo, credit = photos.get_photo(com_name, sci_name, name)
     verse = poems.find_verse(com_name, words)
     print(f"{name}: " + (f'{verse["author"]}, "{verse["title"]}"' if verse else "no verse found"))
+    _shown = (name, photo, credit, verse)
+    footer = status.footer() if SHOW_FOOTER else None
     width, height = scr.size
-    scr.show(render((height, width), name, photo, credit, verse), ROTATE, SATURATION)
+    scr.show(render((height, width), *_shown, footer), ROTATE, SATURATION)
+
+
+def redraw(scr):
+    """Redraw the bird on screen (same verse) with a new footer."""
+    if _shown:
+        width, height = scr.size
+        scr.show(render((height, width), *_shown, status.footer()), ROTATE, SATURATION)
+
+
+def show_sleeping(scr, since):
+    """Redraw the bird on screen (same verse) with "Sleeping since" along the bottom."""
+    if not _shown:
+        return
+    print("Showing the sleeping screen")
+    width, height = scr.size
+    scr.show(render((height, width), *_shown, status.footer(since)), ROTATE, SATURATION)
 
 
 # --- Running ---
@@ -143,6 +178,8 @@ def run(scr, args):
             print(f"Buttons not available ({e})")
 
     if not (args.once or args.preview):
+        # Shutdown or reboot: the sleeping screen first
+        status.on_shutdown(lambda since: show_sleeping(scr, since))
         print("Watching for new birds")
     shown, last_draw = None, 0.0        # shown = the detection on screen
     while True:
@@ -156,6 +193,10 @@ def run(scr, args):
                 shown, last_draw = det, time.time()
             elif det is None and (args.once or args.preview):
                 print("No birds in the database yet.")
+
+            # Redraw if the IP address has changed (checked every IP_CHECK_MINUTES)
+            elif SHOW_FOOTER and status.ip_changed():
+                redraw(scr)
         except Exception:
             log_error()
         if args.once or args.preview:
@@ -166,9 +207,11 @@ def run(scr, args):
         try:
             if btns and btns.shutdown_held(presses):
                 birdsong.stop()
-                print("Shutdown buttons held - shutting down")
+                print("Shutdown buttons held - showing the sleeping screen, then shutting down")
+                status.sleep(lambda since: show_sleeping(scr, since))
                 if buttons.shutdown():
                     return
+                status.wake()
             elif "song" in presses and shown:
                 birdsong.toggle(shown["Com_Name"])
         except Exception:

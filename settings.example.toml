@@ -16,6 +16,7 @@ rotate = 0                  # 0, or 180 if the screen is mounted upside down
 [simple]
 rotate = 90                 # 90 or 270, depending which way up the screen is mounted
 autoplay_song = false       # play each new bird's song (needs a speaker)
+# show_footer = false      # no IP address and update time along the bottom
 
 
 [sound]
@@ -38,4 +39,5 @@ shutdown = ["browse", "song"]    # hold these two together for 3 seconds to shut
 # Any other setting at the top of these files can be changed here too, in
 # lower case: full/display.py [full], full/browse.py [browse],
 # simple/display.py [simple], simple/poems.py [poems],
-# common/buttons.py [buttons], common/birdsong.py [sound], common/birdnet.py [birdnet]
+# common/buttons.py [buttons], common/birdsong.py [sound], common/birdnet.py [birdnet],
+# common/status.py [status]

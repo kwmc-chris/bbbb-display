@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import socket
 import urllib.parse
 import urllib.request
 from html import unescape
@@ -13,6 +14,16 @@ WIKI_LANG = "en"
 
 
 # --- Downloads ---
+
+def ip_address():
+    """This Pi's address on the local network, or None."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("192.0.2.1", 80))
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
 
 def get(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
