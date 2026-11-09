@@ -2,7 +2,7 @@
 
 Photo, names and times heard at the top; five tiles (habitat, food, nesting,
 behaviour, UK status); description and QR code to Wikipedia below. Birds not in
-birdinfo.json get one conservation tile and a longer description.
+birdinfo.json without tile facts get one conservation tile and a longer description.
 
 Tile icons are drawn, or use your own PNG in full/icons/ (e.g. icons/trees.png).
 """
@@ -22,7 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RECENT_SPECIES_LIMIT = 30         # birds in the browse list
 TIMES_SHOWN = 10                  # detection times listed
 DESCRIPTION_LINES = 4             # description lines under the tiles
-FALLBACK_DESCRIPTION_LINES = 5    # description lines for birds not in birdinfo.json
+FALLBACK_DESCRIPTION_LINES = 5    # description lines for birds without tile facts
 QR_SIZES = (3, 2)                 # pixels per QR square, largest that fits
 QR_GAP = 12                       # space between description and QR code
 
@@ -504,7 +504,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
     line_h = 18                               # description line height
     qr_bottom = height - 8                    # lowest edge for the QR code
 
-    if details.get("source") == "file":
+    if details.get("habitat"):
         bottom = tile_top
         for i, (key, label) in enumerate([("habitat", "Habitat"), ("food", "Food"),
                                           ("nesting", "Nesting"), ("behavior", "Behavior")]):
@@ -533,7 +533,7 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
                 d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
                 ty += line_h
     else:
-        # Not in birdinfo.json: conservation tile and QR code right, description left
+        # No tile facts in birdinfo.json: conservation tile and QR code right, description left
         right_bottom = tile_top
         if details.get("conservation"):
             code, bg, fg = iucn_tile(details["conservation"])

@@ -125,7 +125,7 @@ def show_bird(scr, com_name, sci_name):
     """Draw a bird with a new verse."""
     global _shown
     name, words = bird_names(com_name, sci_name)
-    photo, credit = photos.get_photo(com_name, sci_name, name)
+    photo, credit = photos.get_photo(com_name, sci_name)
     verse = poems.find_verse(com_name, words)
     print(f"{name}: " + (f'{verse["author"]}, "{verse["title"]}"' if verse else "no verse found"))
     _shown = (name, photo, credit, verse)

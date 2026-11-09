@@ -6,8 +6,8 @@ import time
 import traceback
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the bbbb-display folder
-CACHE = os.path.join(ROOT, "cache")     # downloaded photos, recordings, poems
-BIRD_INFO = os.path.join(ROOT, "common", "birdinfo.json")   # your names and facts for each bird
+CACHE = os.path.join(ROOT, "cache")     # prepared recordings, downloaded poems
+BIRD_INFO = os.path.join(ROOT, "common", "birdinfo.json")   # names, facts and photo credits for each bird
 
 _errors = {}
 

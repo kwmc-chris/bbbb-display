@@ -16,13 +16,15 @@ Both can play BirdNET-Pi's own recording of the bird through a USB speaker (the 
 | `install.sh` | First-time setup on a new Pi: packages, screen, start at boot, nightly update |
 | `update.sh` | Nightly update from GitHub |
 | `requirements.txt` | Python packages |
-| `full/` | The full display: `display.py` (live screen and buttons), `browse.py`, `info.py` (Wikipedia and Wikidata facts), `nophoto.jpg` |
+| `full/` | The full display: `display.py` (live screen and buttons), `browse.py`, `info.py` (facts from `birdinfo.json`), `nophoto.jpg` |
 | `simple/` | The simple display: `display.py`, `poems.py` (verses from [PoetryDB](https://poetrydb.org)) |
-| `common/` | Shared by both: BirdNET-Pi's database, photos, birdsong, buttons, the screen, and `birdinfo.json` (your names and facts for each bird) |
+| `common/` | Shared by both: BirdNET-Pi's database, photos, birdsong, buttons, the screen, and `birdinfo.json` (names, facts and photo credits for each bird) |
+| `photos/` | A photo of each bird, named by its Wikidata id (e.g. `Q25334.jpg`) |
+| `tools/` | `build_birdinfo.py`: makes `birdinfo.json` and `photos/` from the bird list (run on a Mac, not on a Pi) |
 
-Made on the Pi and not in GitHub: `settings.toml`, `.venv/`, `cache/` (downloaded photos, songs and poems, safe to delete), `display.log`, `update.log`.
+Made on the Pi and not in GitHub: `settings.toml`, `.venv/`, `cache/` (prepared songs and downloaded poems, safe to delete), `display.log`, `update.log`.
 
-Optional extras: `birds/` with your own photos named after the bird (e.g. `birds/European Robin.jpg`), and `full/icons/` with your own tile icons.
+Optional extra: `full/icons/` with your own tile icons.
 
 ## Setting up a Pi
 
@@ -68,15 +70,14 @@ If the update log says a file was "edited on this Pi", put the file back with `g
 
 **Buttons.** The Inky's own buttons: A = browse, B = live, D = song (C isn't used); the pins are in `common/buttons.py`. Holding A and D together for 3 seconds shuts the Pi down safely. Unplug and replug the power to start it again.
 
-**Birds.** `common/birdinfo.json` has an entry for each bird, under BirdNET-Pi's name for it:
+**Birds.** Each bird's facts, Wikipedia text and photo credit are in `common/birdinfo.json`, under BirdNET-Pi's name for the bird. Its photo is in `photos/`. A Pi never looks these up online. `short_name` and `search` are the simple display's name and poem words. `habitat`, `food`, `nesting`, `behavior` and `uk_status` are the browse page tiles; birds without them get a conservation tile instead. To use your own photo, replace it in the bird data folder's `bird_pics_wikipedia/` and in `photos/`, and change its `photo_credit`.
+
+**Adding birds.** The bird list (`bristol_birds_with_q.txt`) and the original photos are kept outside this repo. After changing them, run on a Mac, from this folder:
 ```
-"European Robin": {
-  "sci": "Erithacus rubecula", "short_name": "Robin", "search": ["robin", "redbreast"],
-  "habitat": "Gardens", "food": "Insects", "nesting": "Cavity", "behavior": "Ground Forager", "uk_status": "Green",
-  "order": "Passeriformes", "family": "Muscicapidae", "family_name": "Old World Flycatchers"
-}
+python3 -m venv ~/bbbb-tools && ~/bbbb-tools/bin/pip install pillow      # first time only
+~/bbbb-tools/bin/python tools/build_birdinfo.py "/path/to/04 Bird data"
 ```
-`sci` also finds the bird when BirdNET-Pi uses another name for it. `short_name` and `search` are for the simple display: the name shown and the words to search poems for. The rest are the browse page tiles on the full display. Every field is optional. Birds not listed get a short name without words like "European", and tile facts from Wikidata.
+It rebuilds `birdinfo.json` and `photos/` and keeps anything added by hand. It lists any photo it couldn't find on Wikimedia Commons: find the right one and add a line to `photo_sources.txt` in the bird data folder (the bird's Q number, then a link to the photo's Commons page), then run it again. Then commit and push.
 
 ## Useful commands
 
@@ -89,4 +90,4 @@ sudo systemctl restart bbbb-display        # restart, e.g. after changing settin
 
 ## Credits
 
-Photos: Wikimedia Commons (credit shown on screen). Poems: PoetryDB (public domain). Birdsong: BirdNET-Pi's own recordings. Detections: BirdNET-Pi.
+Photos: Wikimedia Commons (credit shown on screen, and in `birdinfo.json`). Poems: PoetryDB (public domain). Birdsong: BirdNET-Pi's own recordings. Detections: BirdNET-Pi.
