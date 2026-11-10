@@ -29,7 +29,7 @@ BLACK, WHITE = (0, 0, 0), (255, 255, 255)
 
 
 def bird_names(com_name, sci_name=None):
-    """(name to show, words to search poems for), from common/birdinfo.json.
+    """(name to show, words to search poems for), from photos_info/birdinfo.json.
     Other birds lose words like "European" and are searched by their last word."""
     entry = bird_info(com_name, sci_name)
     words = [w for w in com_name.split() if w.lower() not in DROP_WORDS] or com_name.split()

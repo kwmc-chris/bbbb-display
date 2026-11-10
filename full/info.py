@@ -1,9 +1,8 @@
-"""Facts about a bird for the full display, from common/birdinfo.json
-(made by tools/build_birdinfo.py).
+"""Facts about a bird for the full display, from photos_info/birdinfo.json.
 
     description(name, sci)   opening text of its Wikipedia article, cut to length
     wiki_link(name, sci)     link to the article (for the QR code)
-    details(name, sci)       everything else: tile facts, conservation, order, family
+    details(name, sci)       everything else: order, family, tile facts, weight
 """
 
 import re
@@ -23,7 +22,7 @@ def wiki_link(com_name, sci_name=None):
 
 
 def details(com_name, sci_name=None):
-    """The bird's entry in birdinfo.json, e.g. {"habitat", "food", ..., "conservation"}, or {}."""
+    """The bird's entry in birdinfo.json, e.g. {"order", "habitat", "diet", ..., "mass_g"}, or {}."""
     return bird_info(com_name, sci_name)
 
 

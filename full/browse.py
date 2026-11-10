@@ -1,35 +1,27 @@
 """Browse pages for the full display: one page per bird, most recent first.
 
-Photo, names and times heard at the top; five tiles (habitat, food, nesting,
-behaviour, UK status); description and QR code to Wikipedia below. Birds not in
-birdinfo.json without tile facts get one conservation tile and a longer description.
-
-Tile icons are drawn, or use your own PNG in full/icons/ (e.g. icons/trees.png).
+Photo, names and times heard at the top; five tiles (habitat, diet, lifestyle,
+migration, UK status); its weight compared with a robin or a swan; description
+and QR code to Wikipedia below. The facts are in photos_info/birdinfo.json.
 """
 
-import math
-import os
-import re
 from datetime import datetime
 
 from PIL import Image, ImageDraw, ImageOps
 
 from common import birdnet, screen
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-
 # settings
 RECENT_SPECIES_LIMIT = 30         # birds in the browse list
 TIMES_SHOWN = 10                  # detection times listed
 DESCRIPTION_LINES = 4             # description lines under the tiles
-FALLBACK_DESCRIPTION_LINES = 5    # description lines for birds without tile facts
 QR_SIZES = (3, 2)                 # pixels per QR square, largest that fits
 QR_GAP = 12                       # space between description and QR code
 
 PAGE_MARGIN = 14
 PHOTO_SIZE = (170, 140)
-TILE_SIZE = 62
-ICON_PADDING = 9                  # tile edge to icon
+TILE_HEIGHT = 44                  # the coloured box of each tile
+ROBIN_G, SWAN_G = 18, 10000       # weights the bird is compared with
 
 FONTS = {
     "name": ("DejaVuSans-Bold.ttf", 26),
@@ -39,28 +31,25 @@ FONTS = {
     "small": ("DejaVuSans.ttf", 13),
     "tiny": ("DejaVuSans.ttf", 10),
     "tile_label": ("DejaVuSans.ttf", 14),
-    "tile_value": ("DejaVuSans-Bold.ttf", 14),
-    "code": ("DejaVuSans-Bold.ttf", 22),        # "LC", "RED"
-    "code_small": ("DejaVuSans-Bold.ttf", 13),  # "AMBER", "GREEN"
+    "tile_value": ("DejaVuSans-Bold.ttf", 15),
 }
 
 COLOURS = {                       # the screen's six inks
     "black": (0, 0, 0), "white": (255, 255, 255), "red": (255, 0, 0),
     "yellow": (255, 255, 0), "green": (0, 255, 0), "blue": (0, 0, 255),
 }
-TILE_COLOURS = {
-    "habitat": (0, 0, 255),
-    "food": (0, 255, 0),
-    "nesting": (255, 255, 0),
-    "behavior": (255, 128, 0),    # orange (speckled)
+ORANGE = (255, 128, 0)            # mixed from the inks
+TILES = [                         # (birdinfo.json field, label, box colour, text colour)
+    ("habitat", "Habitat", COLOURS["blue"], COLOURS["white"]),
+    ("diet", "Diet", COLOURS["green"], COLOURS["black"]),
+    ("lifestyle", "Lifestyle", COLOURS["yellow"], COLOURS["black"]),
+    ("migration", "Migration", ORANGE, COLOURS["white"]),
+]
+UK_STATUS_COLOURS = {             # UK status tile: list -> (box colour, text colour)
+    "Red": (COLOURS["red"], COLOURS["white"]),
+    "Amber": (COLOURS["yellow"], COLOURS["black"]),
+    "Green": (COLOURS["green"], COLOURS["black"]),
 }
-ICON_COLOURS = {                  # icon colour on each tile
-    "habitat": COLOURS["white"], "food": COLOURS["white"],
-    "nesting": COLOURS["black"], "behavior": COLOURS["white"],
-}
-ICON_DIR = os.path.join(HERE, "icons")
-ICON_MIN_OPACITY = 128            # your icons: a pixel counts if at least this opaque
-ICON_MAX_BRIGHTNESS = 128         # ...and at most this bright (0-255)
 
 
 # --- Helpers ---
@@ -129,290 +118,41 @@ def place_qr(canvas, images, right, top, max_bottom):
     return 0
 
 
-# --- Icons ---
-# Each icon is drawing commands on a 100x100 grid: fill=255 draws, fill=0 cuts a hole.
-# A PNG in ICON_DIR with the icon's name replaces the drawn one.
+# --- Tiles and weight ---
 
-def _bird(d, x, y, s=1.0, fill=255):
-    """Perched bird facing right; (x, y) = body centre, s = scale."""
-    d.ellipse([x - 22 * s, y - 12 * s, x + 14 * s, y + 12 * s], fill=fill)     # body
-    d.ellipse([x + 4 * s, y - 24 * s, x + 24 * s, y - 4 * s], fill=fill)       # head
-    d.polygon([(x + 22 * s, y - 17 * s), (x + 32 * s, y - 13 * s),
-               (x + 22 * s, y - 10 * s)], fill=fill)                           # beak
-    d.polygon([(x - 18 * s, y - 2 * s), (x - 38 * s, y + 10 * s),
-               (x - 30 * s, y + 14 * s)], fill=fill)                           # tail
-
-
-def _tree(d, x, base, h=60, w=34):
-    """Conifer standing on `base`."""
-    d.polygon([(x, base - h), (x - w / 2, base - 12), (x + w / 2, base - 12)], fill=255)
-    d.rectangle([x - 3, base - 14, x + 3, base], fill=255)
+def draw_tile(d, x0, x1, top, label, value, bg, fg):
+    """A tile between x0 and x1: label, then the value in a coloured box.
+    Returns the y just below the box."""
+    _centred(d, label, _font("tile_label"), (x0 + x1) / 2, top, COLOURS["black"])
+    top += 19
+    d.rounded_rectangle((x0, top, x1, top + TILE_HEIGHT), radius=8, fill=bg,
+                        outline=COLOURS["black"] if bg == COLOURS["white"] else None)
+    lines = screen.wrap(d, value, _font("tile_value"), x1 - x0 - 8)[:2]
+    y = top + TILE_HEIGHT / 2 - len(lines) * 9
+    for line in lines:
+        _centred(d, line, _font("tile_value"), (x0 + x1) / 2, y, fg)
+        y += 18
+    return top + TILE_HEIGHT
 
 
-def _sine(d, y, amp=7, wavelength=30, width=7, x0=4, x1=96):
-    """Wavy line at height y."""
-    pts = [(x, y + amp * math.sin((x - x0) / wavelength * 2 * math.pi))
-           for x in range(x0, x1 + 1, 2)]
-    d.line(pts, fill=255, width=width, joint="curve")
-
-
-def _waves(d, y0, n=3):
-    for i in range(n):
-        _sine(d, y0 + i * 20)
-
-
-ICONS = {
-    # Habitat
-    "trees": lambda d: (_tree(d, 30, 88), _tree(d, 66, 88, 74, 40),
-                        d.rectangle([6, 86, 94, 94], fill=255)),
-    "town": lambda d: (d.rectangle([8, 46, 40, 92], fill=255),
-                       d.polygon([(4, 48), (24, 26), (44, 48)], fill=255),
-                       d.rectangle([48, 20, 92, 92], fill=255),
-                       [d.rectangle([56 + c * 14, 30 + r * 16, 64 + c * 14, 38 + r * 16], fill=0)
-                        for r in range(3) for c in range(3)]),                 # windows
-    "water": lambda d: (_waves(d, 40, 3),),
-    "grass": lambda d: (d.ellipse([60, 8, 88, 36], fill=255),                  # sun
-                        [d.polygon([(x, 92), (x + 5, 58 + (x % 3) * 6), (x + 10, 92)], fill=255)
-                         for x in range(4, 92, 11)]),
-    # Food
-    "insects": lambda d: (d.ellipse([36, 32, 64, 86], fill=255), d.ellipse([40, 14, 60, 34], fill=255),
-                          [d.line([(50 + sx * 12, y), (50 + sx * 34, y + dy)], fill=255, width=5)
-                           for sx in (-1, 1) for y, dy in ((44, -12), (58, 0), (72, 14))],
-                          d.line([(44, 16), (34, 2)], fill=255, width=4),
-                          d.line([(56, 16), (66, 2)], fill=255, width=4)),
-    "seeds": lambda d: ([d.ellipse([x, y, x + 22, y + 34], fill=255)
-                         for x, y in ((14, 46), (40, 22), (62, 50))],),
-    "fruit": lambda d: ([d.ellipse([x, y, x + 30, y + 30], fill=255) for x, y in ((12, 52), (50, 56), (32, 30))],
-                        d.line([(47, 30), (60, 6)], fill=255, width=5),
-                        d.line([(27, 52), (60, 6)], fill=255, width=4),
-                        d.line([(65, 56), (60, 6)], fill=255, width=4)),
-    "fish": lambda d: (d.ellipse([10, 30, 72, 70], fill=255),
-                       d.polygon([(66, 50), (94, 28), (94, 72)], fill=255),
-                       d.ellipse([22, 42, 30, 50], fill=0)),                   # eye
-    "plants": lambda d: (d.line([(50, 94), (50, 36)], fill=255, width=8),
-                         d.ellipse([12, 30, 50, 52], fill=255), d.ellipse([50, 14, 90, 38], fill=255)),
-    "worm": lambda d: (_sine(d, 52, amp=14, wavelength=40, width=12, x0=10, x1=82),
-                       d.ellipse([74, 38, 92, 56], fill=255)),
-    "animals": lambda d: (d.ellipse([14, 40, 74, 84], fill=255),                 # mouse
-                          d.polygon([(66, 52), (94, 66), (68, 76)], fill=255),
-                          d.ellipse([54, 30, 74, 50], fill=255),
-                          d.arc([0, 50, 30, 96], 90, 270, fill=255, width=5)),
-    "omnivore": lambda d: (d.ellipse([8, 40, 46, 80], fill=255), d.line([(27, 40), (34, 22)], fill=255, width=5),
-                           d.ellipse([58, 42, 82, 86], fill=255), d.ellipse([62, 26, 78, 42], fill=255),
-                           [d.line([(70 + sx * 8, y), (70 + sx * 22, y + dy)], fill=255, width=4)
-                            for sx in (-1, 1) for y, dy in ((52, -8), (66, 6))]),
-    # Nesting
-    "cup": lambda d: (d.chord([6, 28, 94, 96], 0, 180, fill=255),
-                      [d.ellipse([x - 4, 34, x + 22, 70], fill=0) for x in (24, 42, 60)],
-                      [d.ellipse([x, 38, x + 18, 66], fill=255) for x in (24, 42, 60)]),   # eggs
-    "dome": lambda d: (d.ellipse([14, 12, 86, 92], fill=255), d.ellipse([38, 40, 62, 64], fill=0)),
-    "cavity": lambda d: (d.rectangle([28, 4, 72, 96], fill=255), d.ellipse([40, 32, 60, 52], fill=0),
-                         d.line([(50, 60), (62, 62)], fill=0, width=3)),
-    "tree": lambda d: (d.ellipse([10, 6, 90, 62], fill=255),
-                       d.polygon([(42, 56), (58, 56), (66, 96), (34, 96)], fill=255)),
-    "ground": lambda d: (d.rectangle([4, 80, 96, 90], fill=255),
-                         d.chord([22, 46, 78, 96], 180, 360, fill=255),
-                         [d.ellipse([x, 54, x + 14, 70], fill=0) for x in (34, 50)]),
-    "building": lambda d: (d.rectangle([18, 44, 82, 94], fill=255),
-                           d.polygon([(8, 46), (50, 8), (92, 46)], fill=255),
-                           d.rectangle([42, 66, 58, 94], fill=0)),                # door
-    "other": lambda d: (d.ellipse([20, 20, 80, 80], fill=255), d.ellipse([34, 34, 66, 66], fill=0)),
-    # Behaviour
-    "ground_bird": lambda d: (_bird(d, 48, 52),
-                              [d.line([(x, 96), (x + 4, 76)], fill=255, width=4) for x in range(4, 96, 9)]),
-    "foliage": lambda d: (_bird(d, 52, 48, 0.9), d.line([(4, 72), (96, 64)], fill=255, width=6),
-                          d.ellipse([4, 74, 26, 88], fill=255), d.ellipse([70, 70, 94, 84], fill=255)),
-    "bark": lambda d: (d.rectangle([60, 0, 82, 100], fill=255),
-                       d.ellipse([28, 28, 54, 72], fill=255), d.ellipse([32, 10, 52, 32], fill=255),
-                       d.polygon([(52, 18), (62, 20), (52, 26)], fill=255),
-                       d.polygon([(40, 70), (50, 92), (56, 70)], fill=255)),
-    "flying": lambda d: (d.polygon([(4, 34), (50, 58), (96, 34), (50, 70)], fill=255),
-                         d.ellipse([40, 52, 60, 74], fill=255)),
-    "duck": lambda d: (_bird(d, 52, 44, 1.0), _waves(d, 70, 2)),
-}
-
-# Words that choose each icon: checked top to bottom, first match wins.
-# Patterns are fragments separated by | ; \b = word boundary.
-KEYWORDS = {
-    "habitat": [
-        ("water", r"lake|pond|river|marsh|wetland|coast|shore|\bsea|ocean|water"),
-        ("trees", r"wood|forest|conifer|parkland"),
-        ("town", r"town|garden|urban|village|\bpark|city"),
-        ("grass", r"grass|farm|field|scrub|heath|hedge|open|moor|country"),
-    ],
-    "food": [
-        ("insects", r"insect|\bants?\b|caterpillar|invertebrate"),
-        ("worm", r"worm|snail"),
-        ("seeds", r"seed|grain|nut|acorn|bud"),
-        ("fruit", r"fruit|berr"),
-        ("fish", r"fish"),
-        ("animals", r"animal|mammal|bird|carrion|mice|vole"),
-        ("omnivore", r"omnivore"),
-        ("plants", r"plant|leaf|leaves|veget"),
-    ],
-    "nesting": [
-        ("cavity", r"cavity|hole|crevice|burrow"),
-        ("dome", r"dome"),
-        ("cup", r"cup"),
-        ("building", r"building|ledge|roof|cliff"),
-        ("ground", r"ground"),
-        ("tree", r"tree|branch|platform"),
-    ],
-    "behavior": [
-        ("bark", r"bark|trunk|climb"),
-        ("flying", r"aerial|fly|soar|hover|ambush|dive"),
-        ("duck", r"dabbl|swim|surface|dip"),
-        ("foliage", r"foliage|glean|canopy"),
-        ("ground_bird", r"ground|forag|pounce|scaveng"),
-    ],
-}
-DEFAULT_ICON = {"habitat": "trees", "food": "plants", "nesting": "other",
-                "behavior": "ground_bird"}
-
-
-def choose_icon(category, value):
-    """("habitat", "Open Woodlands") -> "trees"."""
-    for name, pattern in KEYWORDS.get(category, []):
-        if re.search(pattern, value or "", re.I):
-            return name
-    return DEFAULT_ICON.get(category, "other")
-
-
-class _Scaled:
-    """Scales 100x100 grid numbers (and line widths) up to the drawing size."""
-
-    def __init__(self, draw, factor):
-        self._draw, self._k = draw, factor
-
-    def _scale(self, a):
-        if isinstance(a, (int, float)):
-            return a * self._k
-        if isinstance(a, (list, tuple)):
-            return type(a)(self._scale(x) for x in a)
-        return a
-
-    def __getattr__(self, method):
-        real = getattr(self._draw, method)
-
-        def call(*args, **kw):
-            args = [self._scale(a) for a in args]
-            if "width" in kw:
-                kw["width"] = int(kw["width"] * self._k)
-            return real(*args, **kw)
-        return call
-
-
-def _to_stencil(mask, size):
-    """Greyscale mask -> size x size RGBA stencil, every pixel on or off."""
-    mask = mask.resize((size, size), Image.LANCZOS).point(lambda a: 255 if a >= 110 else 0)
-    glyph = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-    glyph.putalpha(mask)
-    return glyph
-
-
-_reported = set()                 # icon files already mentioned in the log
-
-
-def custom_icon_path(name):
-    path = os.path.join(ICON_DIR, name + ".png")
-    return path if os.path.isfile(path) else None
-
-
-def load_custom_icon(name, size):
-    """Stencil from your PNG, or None (no file / unreadable)."""
-    path = custom_icon_path(name)
-    if not path:
+def weight_text(grams):
+    """e.g. "Weighs 490 g - as much as 27 robins", or None.
+    Under 1 kg it's compared with a robin, over with a swan."""
+    if not grams:
         return None
-    try:
-        img = Image.open(path).convert("RGBA")
-    except Exception as e:
-        if path not in _reported:
-            print(f"Couldn't read {path} ({e}) - using the drawn icon instead.")
-            _reported.add(path)
-        return None
-    if path not in _reported:
-        print(f"Using your icon {path}")
-        _reported.add(path)
+    if grams < 1000:
+        weight, n, thing = f"{grams:.0f} g", grams / ROBIN_G, "robin"
+    else:
+        weight, n, thing = f"{grams / 1000:.1f} kg", grams / SWAN_G, "swan"
+    if n >= 1.5:
+        like = f"as much as {round(n)} {thing}s"
+    elif n >= 0.7:
+        like = f"about the same as a {thing}"
+    else:
+        parts = {2: "half", 3: "a third of", 4: "a quarter of", 5: "a fifth of"}
+        like = f"about {parts.get(round(1 / n), f'1/{round(1 / n)} of')} a {thing}"
+    return f"Weighs {weight} - {like}"
 
-    if img.width != img.height:           # centre on a square
-        side = max(img.size)
-        square = Image.new("RGBA", (side, side), (255, 255, 255, 0))
-        square.paste(img, ((side - img.width) // 2, (side - img.height) // 2))
-        img = square
-
-    # Ink = opaque enough and dark enough
-    opacity = img.getchannel("A").point(lambda a: 255 if a >= ICON_MIN_OPACITY else 0)
-    darkness = img.convert("L").point(lambda v: 255 if v <= ICON_MAX_BRIGHTNESS else 0)
-    ink = Image.composite(darkness, Image.new("L", img.size, 0), opacity)
-    return _to_stencil(ink, size)
-
-
-def draw_icon(name, size, draw_size=400):
-    """Stencil of a drawn icon."""
-    big = Image.new("L", (draw_size, draw_size), 0)
-    ICONS[name](_Scaled(ImageDraw.Draw(big), draw_size / 100))
-    return _to_stencil(big, size)
-
-
-def make_icon(category, value, size):
-    """Icon stencil for a tile: your PNG if present, otherwise drawn."""
-    name = choose_icon(category, value)
-    return load_custom_icon(name, size) or draw_icon(name, size)
-
-# --- Tiles ---
-
-IUCN_CODES = [("critically", "CR"), ("endangered", "EN"), ("vulnerable", "VU"),
-              ("near threatened", "NT"), ("least", "LC"), ("data deficient", "DD")]
-
-
-def uk_status_tile(status):
-    """BTO list -> (code, tile colour, text colour, words)."""
-    if not status:
-        return "N/A", COLOURS["white"], COLOURS["black"], "Not assessed"
-    s = status.lower()
-    if s.startswith("red"):
-        return "RED", COLOURS["red"], COLOURS["white"], "Red List"
-    if s.startswith("amber"):
-        return "AMBER", COLOURS["yellow"], COLOURS["black"], "Amber List"
-    return "GREEN", COLOURS["green"], COLOURS["black"], "Green List"
-
-
-def iucn_tile(status):
-    """Global status -> (code, tile colour, text colour)."""
-    code = next((c for k, c in IUCN_CODES if k in status.lower()), status[:2].upper())
-    if code == "LC":
-        return code, COLOURS["green"], COLOURS["black"]
-    if code in ("NT", "DD"):
-        return code, COLOURS["yellow"], COLOURS["black"]
-    return code, COLOURS["red"], COLOURS["white"]
-
-
-def draw_tile(canvas, d, centre_x, top, bg, label, value_lines,
-              glyph=None, glyph_colour=None, code=None, code_colour=None, code_font=None):
-    """Tile with an icon (glyph) or code, plus label and value below.
-    Returns the y just below the last line drawn."""
-    t = TILE_SIZE
-    box = (int(centre_x - t / 2), top, int(centre_x + t / 2), top + t)
-    outline = COLOURS["black"] if bg == COLOURS["white"] else None    # outline on white tiles
-    d.rounded_rectangle(box, radius=8, fill=bg, outline=outline)
-
-    if glyph is not None:
-        inner = t - 2 * ICON_PADDING
-        g = glyph.resize((inner, inner))
-        canvas.paste(Image.new("RGB", g.size, glyph_colour),
-                     (box[0] + ICON_PADDING, box[1] + ICON_PADDING), g)
-    if code:
-        cw = d.textlength(code, font=code_font)
-        d.text((centre_x - cw / 2, top + t / 2 - code_font.size * 0.6), code,
-               font=code_font, fill=code_colour)
-
-    y = top + t + 5
-    _centred(d, label, _font("tile_label"), centre_x, y, COLOURS["black"])
-    y += 18
-    for line in value_lines[:2]:
-        _centred(d, line, _font("tile_value"), centre_x, y, COLOURS["black"])
-        y += 17
-    return y
 
 # --- Page (y = how far down the text has got) ---
 
@@ -455,10 +195,6 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
     for key in ("order", "family"):
         if details.get(key):
             text = details[key]
-            if key == "family" and details.get("family_name"):      # add common name if it fits
-                full = f"{text} ({details['family_name']})"
-                if d.textlength(key.upper() + ": " + full, font=_font("body")) <= max_w:
-                    text = full
             label_w = d.textlength(key.upper() + ": ", font=_font("body"))
             d.text((x_text, y), key.upper() + ":", font=_font("body"), fill=COLOURS["blue"])
             d.text((x_text + label_w, y), text, font=_font("body"), fill=COLOURS["black"])
@@ -497,59 +233,27 @@ def render_page(size, sp, times_today, details, image_path, credit, index, count
     # Tiles: 5 equal columns
     tile_top = max(m + ph + 30, min(y + 10, int(232 * k)))
     col_w = (width - 2 * m) / 5
+    status = details.get("uk_status") or "Not assessed"
+    tiles = [(label, details.get(key) or "-", bg, fg) for key, label, bg, fg in TILES]
+    tiles.append(("UK status", status) + UK_STATUS_COLOURS.get(status, (COLOURS["white"], COLOURS["black"])))
+    for i, (label, value, bg, fg) in enumerate(tiles):
+        bottom = draw_tile(d, m + col_w * i + 3, m + col_w * (i + 1) - 3, tile_top, label, value, bg, fg)
 
-    def column_centre(i):
-        return m + col_w * i + col_w / 2
+    # Weight
+    ty = bottom + 8
+    weight = weight_text(details.get("mass_g"))
+    if weight:
+        d.text((m, ty), weight, font=_font("bold"), fill=COLOURS["black"])
+        ty += 22
 
-    line_h = 18                               # description line height
-    qr_bottom = height - 8                    # lowest edge for the QR code
-
-    if details.get("habitat"):
-        bottom = tile_top
-        for i, (key, label) in enumerate([("habitat", "Habitat"), ("food", "Food"),
-                                          ("nesting", "Nesting"), ("behavior", "Behavior")]):
-            value = details.get(key)
-            if not value:
-                continue
-            bottom = max(bottom, draw_tile(
-                canvas, d, column_centre(i), tile_top, TILE_COLOURS[key], label,
-                screen.wrap(d, value, _font("tile_value"), col_w - 4),
-                glyph=make_icon(key, value, 64), glyph_colour=ICON_COLOURS[key]))
-        code, bg, fg, words = uk_status_tile(details.get("uk_status"))
-        status_bottom = draw_tile(
-            canvas, d, column_centre(4), tile_top, bg, "UK Status", [words],
-            code=code, code_colour=fg,
-            code_font=_font("code_small") if len(code) > 3 else _font("code"))
-        bottom = max(bottom, status_bottom)
-
-        # QR code under the status tile; description beside it
-        qr_w = place_qr(canvas, qr, width - m, status_bottom + 8, qr_bottom)
-        text_w = width - 2 * m - (qr_w + QR_GAP if qr_w else 0)
-        if description:
-            ty = bottom + 6
-            room = (height - m - reserve_bottom - ty) // line_h
-            for line in _wrap_limit(d, description, _font("body"), text_w,
-                                    min(DESCRIPTION_LINES, room)):
-                d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
-                ty += line_h
-    else:
-        # No tile facts in birdinfo.json: conservation tile and QR code right, description left
-        right_bottom = tile_top
-        if details.get("conservation"):
-            code, bg, fg = iucn_tile(details["conservation"])
-            right_bottom = draw_tile(
-                canvas, d, column_centre(4), tile_top, bg, "Conservation",
-                screen.wrap(d, details["conservation"], _font("tile_value"), col_w - 4),
-                code=code, code_colour=fg, code_font=_font("code")) + 8
-        place_qr(canvas, qr, width - m, right_bottom, qr_bottom)
-        ty = tile_top
-        if description:
-            room = (height - m - reserve_bottom - ty - 26) // 19     # room for the note below
-            for line in _wrap_limit(d, description, _font("body"), col_w * 4 - 10,
-                                    min(FALLBACK_DESCRIPTION_LINES, room)):
-                d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
-                ty += 19
-        d.text((m, ty + 6), "Add this bird to common/birdinfo.json for more details.",
-               font=_font("small"), fill=COLOURS["blue"])
+    # QR code bottom right; description beside it
+    qr_w = place_qr(canvas, qr, width - m, ty, height - 8)
+    text_w = width - 2 * m - (qr_w + QR_GAP if qr_w else 0)
+    if description:
+        line_h = 18
+        room = (height - m - reserve_bottom - ty) // line_h
+        for line in _wrap_limit(d, description, _font("body"), text_w, min(DESCRIPTION_LINES, room)):
+            d.text((m, ty), line, font=_font("body"), fill=COLOURS["black"])
+            ty += line_h
 
     return canvas

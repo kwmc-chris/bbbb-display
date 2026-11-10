@@ -18,12 +18,10 @@ Both can play BirdNET-Pi's own recording of the bird through a USB speaker (the 
 | `requirements.txt` | Python packages |
 | `full/` | The full display: `display.py` (live screen and buttons), `browse.py`, `info.py` (facts from `birdinfo.json`), `nophoto.jpg` |
 | `simple/` | The simple display: `display.py`, `poems.py` (verses from [PoetryDB](https://poetrydb.org)) |
-| `common/` | Shared by both: BirdNET-Pi's database, photos, birdsong, buttons, the screen, and `birdinfo.json` (names, facts and photo credits for each bird) |
-| `photos/` | A photo of each bird, named by its Wikidata id (e.g. `Q25334.jpg`) |
+| `common/` | Shared by both: BirdNET-Pi's database, photos, birdsong, buttons, the screen |
+| `photos_info/` | A photo of each bird, named by its Wikidata id (e.g. `Q25334.jpg`), and `birdinfo.json` (names, facts and photo credits for each bird) |
 
 Made on the Pi and not in GitHub: `settings.toml`, `.venv/`, `cache/` (prepared songs and downloaded poems, safe to delete), `display.log`, `update.log`.
-
-Optional extra: `full/icons/` with your own tile icons.
 
 ## Setting up a Pi
 
@@ -69,7 +67,7 @@ If the update log says a file was "edited on this Pi", put the file back with `g
 
 **Buttons.** The Inky's own buttons: A = browse, B = live, D = song (C isn't used); the pins are in `common/buttons.py`. Holding A and D together for 3 seconds shuts the Pi down safely. Unplug and replug the power to start it again.
 
-**Birds.** Each bird's facts, Wikipedia text and photo credit are in `common/birdinfo.json`, under BirdNET-Pi's name for the bird. Its photo is in `photos/`. `short_name` and `search` are the simple display's name and poem words. `habitat`, `food`, `nesting`, `behavior` and `uk_status` are the browse page tiles; birds without them get a conservation tile instead. To use your own photo, replace it in `photos` folder, and change its `photo_credit`.
+**Birds.** Each bird's facts, Wikipedia text and photo credit are in `photos_info/birdinfo.json`, under BirdNET-Pi's name for the bird, with its photo in the same folder. `short_name` and `search` are the simple display's name and poem words. `habitat`, `diet`, `lifestyle` and `mass_g` (weight) come from AVONET, `uk_status` from Birds of Conservation Concern 5, and `migration` (Resident, Summer visitor…) from Wikipedia's List of birds of Great Britain. To use your own photo, replace it in `photos_info` and change its `photo_credit`.
 
 
 ## Useful commands
@@ -83,4 +81,4 @@ sudo systemctl restart bbbb-display        # restart, e.g. after changing settin
 
 ## Credits
 
-Photos: Wikimedia Commons (credit shown on screen, and in `birdinfo.json`). Poems: PoetryDB (public domain). Birdsong: BirdNET-Pi's own recordings. Detections: BirdNET-Pi.
+Photos: Wikimedia Commons (credit shown on screen, and in `birdinfo.json`). Habitat, diet, lifestyle and weight: AVONET, Tobias et al. (2022) Ecology Letters 25: 581–597 (CC BY 4.0). UK status: Birds of Conservation Concern 5, Stanbury et al. (2021) British Birds 114: 723–747. Descriptions and migration: Wikipedia (CC BY-SA). Poems: PoetryDB (public domain). Birdsong: BirdNET-Pi's own recordings. Detections: BirdNET-Pi.
