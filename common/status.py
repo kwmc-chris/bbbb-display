@@ -75,7 +75,7 @@ def wake():
 
 
 def shutting_down():
-    """True if the whole Pi is shutting down or rebooting (not just the display restarting)."""
+    """True if the whole Pi is shutting down or rebooting."""
     result = subprocess.run(["systemctl", "is-system-running"], capture_output=True, text=True)
     return result.stdout.strip() == "stopping"
 
