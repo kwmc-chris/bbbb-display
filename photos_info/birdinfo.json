@@ -1,5 +1,5 @@
 {
-  "_readme": "One entry per bird, under BirdNET-Pi's name for it (also found by sci, its scientific name). Made by build_birdinfo.py, which keeps short_name and search (the simple display's name and poem words). order, family, habitat, diet, lifestyle, mass_g: AVONET. uk_status: Birds of Conservation Concern 5. migration: Wikipedia's List of birds of Great Britain. description, wiki_url: Wikipedia. photo: the photo in this folder, photo_credit: its credit.",
+  "_readme": "One entry per bird, under BirdNET-Pi's name for it. Scientific name and qid taken from 'bristol_birds_with_q.txt' | photos from wikimedia commons | order, family, habitat, diet, lifestyle, mass_g from AVONET | uk_status from Birds of Conservation Concern 5 | migration from Wikipedia's List of birds of Great Britain | description, wiki_url from Wikipedia",
   "Common Wood-Pigeon": {
     "sci": "Columba palumbus",
     "qid": "Q26026",

@@ -3,9 +3,8 @@
 Shows the birds a **BirdNET-Pi** hears on a **Pimoroni Inky Impression** e-ink screen (4" or 7.3"), on a Raspberry Pi 4. Each Pi runs one of two displays, chosen in its `settings.toml`:
 
 - **full**: the latest bird with today's totals, plus browse pages (photo, facts, QR code to Wikipedia), using the buttons.
-- **simple**: in portrait, the bird's everyday name (*Robin*, not *European Robin*), its whole photo across the width, and underneath a verse from a classic poem that mentions it, with the IP address and update time along the bottom.
-
-Both can play BirdNET-Pi's own recording of the bird through a USB speaker (the song button, on the live screen or a browse page), and both can shut the Pi down from the buttons.
+- **simple**: in portrait, the bird's everyday name (*Robin*, not *European Robin*), its photo and underneath a verse from a classic poem that mentions it.
+Both show the IP address and update time along the bottom, can play BirdNET-Pi's own recording of the bird through a USB speaker and can shut the Pi down from the buttons.
 
 ## Files
 
@@ -81,4 +80,10 @@ sudo systemctl restart bbbb-display        # restart, e.g. after changing settin
 
 ## Credits
 
-Photos: Wikimedia Commons (credit shown on screen, and in `birdinfo.json`). Habitat, diet, lifestyle and weight: AVONET, Tobias et al. (2022) Ecology Letters 25: 581–597 (CC BY 4.0). UK status: Birds of Conservation Concern 5, Stanbury et al. (2021) British Birds 114: 723–747. Descriptions and migration: Wikipedia (CC BY-SA). Poems: PoetryDB (public domain). Birdsong: BirdNET-Pi's own recordings. Detections: BirdNET-Pi.
+Photos: Wikimedia Commons (credit shown on screen, and in `birdinfo.json`). 
+Habitat, diet, lifestyle and weight: AVONET, Tobias et al. (2022) Ecology Letters 25: 581–597 (CC BY 4.0). 
+UK status: Birds of Conservation Concern 5, Stanbury et al. (2021) British Birds 114: 723–747. 
+Descriptions and migration: Wikipedia (CC BY-SA). 
+Poems: PoetryDB (public domain). 
+Birdsong: BirdNET-Pi's own recordings. 
+Detections: BirdNET-Pi.
