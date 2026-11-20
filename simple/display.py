@@ -141,18 +141,22 @@ def redraw(scr):
         scr.show(render((height, width), *_shown, status.footer()), ROTATE, SATURATION)
 
 
-def show_waiting(scr):
-    """Draw the waiting screen, before BirdNET-Pi has heard any birds."""
-    print("No birds in the database yet - showing the waiting screen")
+def show_waiting(scr, sleeping=None):
+    """Draw the waiting screen, before BirdNET-Pi has heard any birds.
+    sleeping = time: "Sleeping since" along the bottom."""
+    if not sleeping:
+        print("No birds in the database yet - showing the waiting screen")
     width, height = scr.size
-    scr.show(screen.waiting((height, width), status.footer()), ROTATE, SATURATION)
+    scr.show(screen.waiting((height, width), status.footer(sleeping)), ROTATE, SATURATION)
 
 
 def show_sleeping(scr, since):
-    """Redraw the bird on screen (same verse) with "Sleeping since" along the bottom."""
-    if not _shown:
-        return
+    """Redraw the bird on screen (same verse), or the waiting screen if no birds yet,
+    with "Sleeping since" along the bottom."""
     print("Showing the sleeping screen")
+    if not _shown:
+        show_waiting(scr, since)
+        return
     width, height = scr.size
     scr.show(render((height, width), *_shown, status.footer(since)), ROTATE, SATURATION)
 

@@ -162,6 +162,8 @@ def show_live(scr, sleeping=None):
     det = birdnet.latest()
     if det is None:
         print("No birds in the database yet.")
+        if sleeping:
+            show_waiting(scr, sleeping)
         return None
     rows = birdnet.query("SELECT COUNT(*), COUNT(DISTINCT Com_Name) FROM detections WHERE Date = ?",
                          det["Date"])
@@ -177,10 +179,14 @@ def show_live(scr, sleeping=None):
     return (det["Date"], det["Time"], det["Com_Name"])
 
 
-def show_waiting(scr):
-    """Draw the waiting screen, before BirdNET-Pi has heard any birds."""
-    print("No birds in the database yet - showing the waiting screen")
-    scr.show(screen.waiting(scr.size, status.footer()), ROTATE, SATURATION)
+def show_waiting(scr, sleeping=None):
+    """Draw the waiting screen, before BirdNET-Pi has heard any birds.
+    sleeping = time: "Sleeping since" along the bottom."""
+    if sleeping:
+        print("Showing the sleeping screen")
+    else:
+        print("No birds in the database yet - showing the waiting screen")
+    scr.show(screen.waiting(scr.size, status.footer(sleeping)), ROTATE, SATURATION)
 
 
 # --- Browse page ---
