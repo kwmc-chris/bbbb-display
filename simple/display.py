@@ -141,6 +141,13 @@ def redraw(scr):
         scr.show(render((height, width), *_shown, status.footer()), ROTATE, SATURATION)
 
 
+def show_waiting(scr):
+    """Draw the waiting screen, before BirdNET-Pi has heard any birds."""
+    print("No birds in the database yet - showing the waiting screen")
+    width, height = scr.size
+    scr.show(screen.waiting((height, width), status.footer()), ROTATE, SATURATION)
+
+
 def show_sleeping(scr, since):
     """Redraw the bird on screen (same verse) with "Sleeping since" along the bottom."""
     if not _shown:
@@ -172,11 +179,18 @@ def run(scr):
     status.on_shutdown(lambda since: show_sleeping(scr, since))
     print("Watching for new birds")
     shown, last_draw = None, 0.0        # shown = the detection on screen
+    waiting = False                     # True once the waiting screen is shown
     while True:
-        # New bird: show it (at most every MIN_REFRESH_SECONDS)
         try:
             det = birdnet.latest()
-            if det and not same(det, shown) and time.time() - last_draw >= MIN_REFRESH_SECONDS:
+
+            # No birds yet: the waiting screen (once)
+            if det is None and not waiting:
+                show_waiting(scr)
+                waiting = True
+
+            # New bird: show it (at most every MIN_REFRESH_SECONDS)
+            elif det and not same(det, shown) and time.time() - last_draw >= MIN_REFRESH_SECONDS:
                 show_bird(scr, det["Com_Name"], det["Sci_Name"])
                 shown, last_draw = det, time.time()
 

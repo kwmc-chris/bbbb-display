@@ -177,6 +177,12 @@ def show_live(scr, sleeping=None):
     return (det["Date"], det["Time"], det["Com_Name"])
 
 
+def show_waiting(scr):
+    """Draw the waiting screen, before BirdNET-Pi has heard any birds."""
+    print("No birds in the database yet - showing the waiting screen")
+    scr.show(screen.waiting(scr.size, status.footer()), ROTATE, SATURATION)
+
+
 # --- Browse page ---
 
 def show_page(scr, species, index):
@@ -213,6 +219,7 @@ def run(scr):
 
     page = "live"                 # "live" or "browse"
     shown = None                  # (date, time, bird) on the live screen
+    waiting = False               # True once the waiting screen is shown
     last_draw = last_press = 0.0
     species, index = [], 0
 
@@ -280,9 +287,15 @@ def run(scr):
                     shown, last_draw = show_live(scr), time.time()
                 continue
 
-            # Live: redraw for a new bird, at most every MIN_REFRESH_SECONDS
+            # Live: the waiting screen (once) until the first bird
             det = birdnet.latest()
-            if det and (det["Date"], det["Time"], det["Com_Name"]) != shown \
+            if det is None:
+                if not waiting:
+                    show_waiting(scr)
+                    waiting = True
+
+            # Live: redraw for a new bird, at most every MIN_REFRESH_SECONDS
+            elif (det["Date"], det["Time"], det["Com_Name"]) != shown \
                     and time.time() - last_draw >= MIN_REFRESH_SECONDS:
                 shown, last_draw = show_live(scr), time.time()
 
