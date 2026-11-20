@@ -2,10 +2,15 @@
 European Robin), its photo across the width, and a verse from a classic poem
 that mentions it - a different verse each time.
 
-Buttons: "song" plays or stops the bird's song; hold the SHUTDOWN buttons to shut down.
+Button jobs (pins are set in common/buttons.py):
+    browse   first press: the most recent bird, then one further back each press
+    live     back to the live screen (also happens after BROWSE_TIMEOUT_SECONDS)
+    song     play or stop the song of the bird on screen
+    hold the SHUTDOWN buttons: show "Sleeping since..." and shut down
 """
 
 import time
+from datetime import datetime
 
 from PIL import Image, ImageDraw, ImageOps
 
@@ -17,15 +22,26 @@ ROTATE = 90                 # 90 or 270, depending which way up the screen is
 SATURATION = 0.5            # photo colour strength, 0-1
 POLL_SECONDS = 30           # how often to check for a new bird
 MIN_REFRESH_SECONDS = 180   # shortest gap between redraws
+BROWSE_TIMEOUT_SECONDS = 300    # back to live after this long without a press
+RECENT_SPECIES_LIMIT = 30   # birds in the browse list
+HEARD_TEXT = "Heard %a %H:%M"   # when a browsed bird was last heard, e.g. "Heard Mon 18:22"
 PHOTO_MAX_SHARE = 0.6       # most of the screen height a tall photo may take
 SHOW_FOOTER = True          # IP address and update time along the bottom (always shows "Sleeping since")
 MARGIN = 16
 NAME_FONT = "DejaVuSans-Bold.ttf"
 VERSE_FONT = "DejaVuSans-Bold.ttf"
 SMALL_FONT = "DejaVuSans.ttf"
+HINT_KEY_FONT = "DejaVuSans-Bold.ttf"
+HINT_FONT = "DejaVuSans.ttf"
+HINTS = {                   # (button job, label) on each screen
+    "live": [("browse", "browse"), ("song", "birdsong")],
+    "browse": [("browse", "next"), ("live", "live"), ("song", "birdsong")],
+}
 DROP_WORDS = {"european", "eurasian", "common", "western", "northern", "eastern"}
 
 BLACK, WHITE = (0, 0, 0), (255, 255, 255)
+
+_has_buttons = False        # set by run() once the buttons are found
 
 
 def bird_names(com_name, sci_name=None):
@@ -38,6 +54,26 @@ def bird_names(com_name, sci_name=None):
 
 # --- Drawing ---
 
+def hints(page):
+    """[(letter, label)] for the buttons that work on this page."""
+    if not _has_buttons:
+        return []
+    return [(buttons.letter(job), label) for job, label in HINTS[page]
+            if buttons.letter(job) and (job != "song" or birdsong.has_speaker())]
+
+
+def draw_hints(d, hint_list, x, y, k):
+    """Button hints, e.g. [A] browse  [D] birdsong, starting at (x, y); k = text size scale."""
+    box, gap = int(15 * k), int(12 * k)
+    key_font, label_font = screen.font(HINT_KEY_FONT, int(11 * k)), screen.font(HINT_FONT, int(13 * k))
+    for key, label in hint_list:
+        d.rounded_rectangle((x, y, x + box, y + box), radius=3, fill=BLACK)
+        d.text((x + (box - d.textlength(key, font=key_font)) / 2, y + 1), key, font=key_font, fill=WHITE)
+        x += box + 4
+        d.text((x, y), label, font=label_font, fill=BLACK)
+        x += d.textlength(label, font=label_font) + gap
+
+
 def layout_verse(d, verse_lines, size, width):
     """Wrap the verse; a long line carries on indented. Returns [(text, indent)]."""
     fnt = screen.font(VERSE_FONT, size)
@@ -49,9 +85,10 @@ def layout_verse(d, verse_lines, size, width):
     return out
 
 
-def render(size, name, photo, credit, verse, footer=None):
+def render(size, name, photo, credit, verse, footer=None, hint_list=()):
     """The screen picture; size = (width, height) in portrait.
-    footer = (left text, right text, right colour) along the bottom, or None."""
+    footer = (left text, right text, right colour) along the bottom, or None.
+    hint_list = [(letter, label)] button hints above the footer."""
     w, h = size
     k = w / 400                     # text size scale for the screen size
     m = MARGIN
@@ -84,7 +121,8 @@ def render(size, name, photo, credit, verse, footer=None):
         d.text((w - m - d.textlength(credit, font=f), y + 2), credit, font=f, fill=BLACK)
         y += 14
 
-    # Footer: IP address left, update time (or "Sleeping since") right
+    # Footer: IP address left, update time (or "Sleeping since") right;
+    # on browse pages, the place in the list left and when last heard right
     bottom = h - m                  # bottom of the space for the verse
     if footer:
         left, right, colour = footer
@@ -93,6 +131,12 @@ def render(size, name, photo, credit, verse, footer=None):
         d.text((m, footer_y), left, font=f, fill=BLACK)
         d.text((w - m - d.textlength(right, font=f), footer_y), right, font=f, fill=colour)
         bottom = footer_y - 8
+
+    # Button hints above the footer
+    if hint_list:
+        bottom -= int(15 * k)
+        draw_hints(d, hint_list, m, bottom, k)
+        bottom -= 8
 
     if not verse:
         return img
@@ -121,24 +165,35 @@ def render(size, name, photo, credit, verse, footer=None):
 _shown = None       # (name, photo, credit, verse) on screen, to redraw as the sleeping screen
 
 
-def show_bird(scr, com_name, sci_name):
-    """Draw a bird with a new verse."""
+def show_bird(scr, com_name, sci_name, page="live", footer=None):
+    """Draw a bird with a new verse. page = "live" or "browse", for the button hints.
+    footer = (left text, right text, colour), or None for the IP address and update time."""
     global _shown
     name, words = bird_names(com_name, sci_name)
     photo, credit = photos.get_photo(com_name, sci_name)
     verse = poems.find_verse(com_name, words)
     print(f"{name}: " + (f'{verse["author"]}, "{verse["title"]}"' if verse else "no verse found"))
     _shown = (name, photo, credit, verse)
-    footer = status.footer() if SHOW_FOOTER else None
+    if footer is None and SHOW_FOOTER:
+        footer = status.footer()
     width, height = scr.size
-    scr.show(render((height, width), *_shown, footer), ROTATE, SATURATION)
+    scr.show(render((height, width), *_shown, footer, hints(page)), ROTATE, SATURATION)
+
+
+def show_page(scr, species, index):
+    """Draw the browse page for species[index]: the same as the live screen, with its
+    place in the list and when it was last heard along the bottom."""
+    sp = species[index]
+    heard = datetime.strptime(sp["last_heard"][:16], "%Y-%m-%d %H:%M").strftime(HEARD_TEXT)
+    print(f"Browsing {index + 1} of {len(species)}: {sp['Com_Name']} - updating the screen")
+    show_bird(scr, sp["Com_Name"], sp["Sci_Name"], "browse", (f"{index + 1} of {len(species)}", heard, BLACK))
 
 
 def redraw(scr):
-    """Redraw the bird on screen (same verse) with a new footer."""
+    """Redraw the bird on the live screen (same verse) with a new footer."""
     if _shown:
         width, height = scr.size
-        scr.show(render((height, width), *_shown, status.footer()), ROTATE, SATURATION)
+        scr.show(render((height, width), *_shown, status.footer(), hints("live")), ROTATE, SATURATION)
 
 
 def show_waiting(scr, sleeping=None):
@@ -171,42 +226,33 @@ def same(a, b):
 def run(scr):
     """Show each new bird, and answer the buttons, until stopped."""
     # Buttons
+    global _has_buttons
     btns = None
     try:
         btns = buttons.Buttons()
-        print("Buttons ready: " + ", ".join(f"{job} = GPIO {pin}" for job, pin in buttons.PINS.items()
-                                            if job == "song" or job in buttons.SHUTDOWN))
+        _has_buttons = True
+        print("Buttons ready: " + ", ".join(f"{job} = GPIO {pin}" for job, pin in buttons.PINS.items()))
     except Exception as e:
-        print(f"Buttons not available ({e})")
+        print(f"Buttons not available, so the live screen only ({e})")
+
+    page = "live"                       # "live" or "browse"
+    shown, last_draw = None, 0.0        # shown = the detection on the live screen
+    waiting = False                     # True once the waiting screen is shown
+    species, index, last_press = [], 0, 0.0
 
     # Shutdown or reboot: the sleeping screen first
     status.on_shutdown(lambda since: show_sleeping(scr, since))
+
     print("Watching for new birds")
-    shown, last_draw = None, 0.0        # shown = the detection on screen
-    waiting = False                     # True once the waiting screen is shown
+    first = True
     while True:
+        # Wait for a button press or POLL_SECONDS (no wait the first time)
+        if first:
+            presses, first = [], False
+        else:
+            presses = btns.wait(POLL_SECONDS) if btns else (time.sleep(POLL_SECONDS) or [])
         try:
-            det = birdnet.latest()
-
-            # No birds yet: the waiting screen (once)
-            if det is None and not waiting:
-                show_waiting(scr)
-                waiting = True
-
-            # New bird: show it (at most every MIN_REFRESH_SECONDS)
-            elif det and not same(det, shown) and time.time() - last_draw >= MIN_REFRESH_SECONDS:
-                show_bird(scr, det["Com_Name"], det["Sci_Name"])
-                shown, last_draw = det, time.time()
-
-            # Redraw if the IP address has changed (checked every IP_CHECK_MINUTES)
-            elif SHOW_FOOTER and status.ip_changed():
-                redraw(scr)
-        except Exception:
-            log_error()
-
-        # Wait for a button press or POLL_SECONDS
-        presses = btns.wait(POLL_SECONDS) if btns else (time.sleep(POLL_SECONDS) or [])
-        try:
+            # Shutdown buttons held: sleeping screen, then shut down
             if btns and btns.shutdown_held(presses):
                 birdsong.stop()
                 print("Shutdown buttons held - showing the sleeping screen, then shutting down")
@@ -214,7 +260,61 @@ def run(scr):
                 if buttons.shutdown():
                     return
                 status.wake()
-            elif "song" in presses and shown:
-                birdsong.toggle(shown["Com_Name"])
+                page, shown, last_draw = "live", None, 0.0
+                continue
+
+            # Live button: back to the live screen (drawn below)
+            if "live" in presses and page != "live":
+                birdsong.stop()
+                page, shown, last_draw = "live", None, 0.0
+
+            # Browse button: most recent bird first, then one further back each press
+            elif "browse" in presses:
+                steps = presses.count("browse")
+                birdsong.stop()
+                if page != "browse":
+                    species, index = birdnet.recent_species(RECENT_SPECIES_LIMIT), 0
+                    steps -= 1
+                if species:
+                    page = "browse"
+                    index = (index + steps) % len(species)
+                    if "song" in presses:
+                        birdsong.toggle(species[index]["Com_Name"])
+                    show_page(scr, species, index)
+                last_press = time.time()
+                continue
+
+            # Song button: the bird on screen
+            elif "song" in presses:
+                if page == "browse":
+                    birdsong.toggle(species[index]["Com_Name"])
+                    last_press = time.time()
+                elif shown:
+                    birdsong.toggle(shown["Com_Name"])
+                continue
+
+            # Browsing: back to live after BROWSE_TIMEOUT_SECONDS without a press
+            if page == "browse":
+                if time.time() - last_press < BROWSE_TIMEOUT_SECONDS:
+                    continue
+                print("No presses for a while - back to the live screen")
+                birdsong.stop()
+                page, shown, last_draw = "live", None, 0.0
+
+            # Live: the waiting screen (once) until the first bird
+            det = birdnet.latest()
+            if det is None:
+                if not waiting:
+                    show_waiting(scr)
+                    waiting = True
+
+            # Live: a new bird, at most every MIN_REFRESH_SECONDS
+            elif not same(det, shown) and time.time() - last_draw >= MIN_REFRESH_SECONDS:
+                show_bird(scr, det["Com_Name"], det["Sci_Name"])
+                shown, last_draw = det, time.time()
+
+            # Live: redraw if the IP address has changed (checked every IP_CHECK_MINUTES)
+            elif SHOW_FOOTER and status.ip_changed():
+                redraw(scr)
         except Exception:
             log_error()

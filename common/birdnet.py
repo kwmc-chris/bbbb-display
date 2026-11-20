@@ -22,3 +22,10 @@ def latest():
     """The most recent detection, or None."""
     rows = query("SELECT * FROM detections ORDER BY Date DESC, Time DESC LIMIT 1")
     return rows[0] if rows else None
+
+
+def recent_species(limit):
+    """[{Com_Name, Sci_Name, last_heard, total}], most recently heard first."""
+    return [dict(r) for r in query(
+        "SELECT Com_Name, Sci_Name, MAX(Date || ' ' || Time) AS last_heard, COUNT(*) AS total "
+        "FROM detections GROUP BY Com_Name ORDER BY last_heard DESC LIMIT ?", limit)]

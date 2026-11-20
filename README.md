@@ -3,7 +3,7 @@
 Shows the birds a **BirdNET-Pi** hears on a **Pimoroni Inky Impression** e-ink screen (4" or 7.3"), on a Raspberry Pi 4. Each Pi runs one of two displays, chosen in its `settings.toml`:
 
 - **full**: the latest bird with today's totals, plus browse pages (photo, facts, QR code to Wikipedia), using the buttons.
-- **simple**: in portrait, the bird's everyday name (*Robin*, not *European Robin*), its photo and underneath a verse from a classic poem that mentions it.
+- **simple**: in portrait, the bird's everyday name (*Robin*, not *European Robin*), its photo and underneath a verse from a classic poem that mentions it, plus browse pages of the same for recent birds, using the buttons.
 Both show the IP address and update time along the bottom, can play BirdNET-Pi's own recording of the bird through a USB speaker and can shut the Pi down from the buttons.
 
 ## Files
@@ -64,7 +64,7 @@ If the update log says a file was "edited on this Pi", put the file back with `g
 
 **Updated and sleeping.** Both displays show the IP address and when the screen was last updated (e.g. "Updated Mon 18:22") along the bottom. The IP address is checked every 10 minutes, and if it changes (e.g. to "No network") the screen is redrawn. When the Pi shuts down or reboots (the shutdown buttons, or by `sudo shutdown`), the screen changes to "Sleeping since Mon 18:30" in red first. If that's old, the Pi is off without being shutdown
 
-**Buttons.** The Inky's own buttons: A = browse, B = live, D = song (C isn't used); the pins are in `common/buttons.py`. Holding A and D together for 3 seconds shuts the Pi down safely. Unplug and replug the power to start it again.
+**Buttons.** The Inky's own buttons, on both displays: A = browse, B = live, D = song (C isn't used); the pins are in `common/buttons.py`. The first press of browse shows the most recent bird, then each press goes one bird further back; after 5 minutes without a press it goes back to live. Small labels at the bottom of the screen show what each button does. Holding A and D together for 3 seconds shuts the Pi down safely. Unplug and replug the power to start it again.
 
 **Birds.** Each bird's facts, Wikipedia text and photo credit are in `photos_info/birdinfo.json`, under BirdNET-Pi's name for the bird, with its photo in the same folder. `short_name` and `search` are the simple display's name and poem words. `habitat`, `diet`, `lifestyle` and `mass_g` (weight) come from AVONET, `uk_status` from Birds of Conservation Concern 5, and `migration` (Resident, Summer visitor…) from Wikipedia's List of birds of Great Britain. To use your own photo, replace it in `photos_info` and change its `photo_credit`.
 

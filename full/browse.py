@@ -78,10 +78,7 @@ def _centred(draw, text, fnt, centre_x, y, fill):
 
 def recent_species():
     """[{Com_Name, Sci_Name, last_heard, total}], most recently heard first."""
-    return [dict(r) for r in birdnet.query(
-        "SELECT Com_Name, Sci_Name, MAX(Date || ' ' || Time) AS last_heard, COUNT(*) AS total "
-        "FROM detections GROUP BY Com_Name ORDER BY last_heard DESC LIMIT ?",
-        RECENT_SPECIES_LIMIT)]
+    return birdnet.recent_species(RECENT_SPECIES_LIMIT)
 
 
 def times_heard(com_name, date):
